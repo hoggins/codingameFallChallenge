@@ -1,3 +1,5 @@
+using System;
+
 struct Ingredient
 {
   public short T0;
@@ -13,6 +15,20 @@ struct Ingredient
     T3 = short.Parse(arr[idx + 3]);
   }
 
+  public int this[int index]
+  {
+    get {
+      switch (index)
+      {
+        case 0: return T0;
+        case 1: return T1;
+        case 2: return T2;
+        case 3: return T3;
+        default: throw new ArgumentOutOfRangeException(nameof(index));
+      }
+    }
+  }
+
   public int Total()
   {
     return T0 + T1 + T2 + T3;
@@ -21,5 +37,25 @@ struct Ingredient
   public bool AboveZero(Ingredient o)
   {
     return T0 + o.T0 >= 0 && T1 + o.T1 >= 0 && T2 + o.T2 >= 0 && T3 + o.T3 >= 0;
+  }
+
+  public byte? DeficitComponent()
+  {
+    if (T0 < 0) return 0;
+    if (T1 < 0) return 1;
+    if (T2 < 0) return 2;
+    if (T3 < 0) return 3;
+    return null;
+  }
+
+  public static Ingredient operator +(Ingredient a, Ingredient b)
+  {
+    return new Ingredient
+    {
+      T0 = (short) (a.T0 + b.T0),
+      T1 = (short) (a.T1 + b.T1),
+      T2 = (short) (a.T2 + b.T2),
+      T3 = (short) (a.T3 + b.T3),
+    };
   }
 }

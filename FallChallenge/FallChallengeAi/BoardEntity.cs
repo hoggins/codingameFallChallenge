@@ -2,7 +2,10 @@ using System;
 
 enum EntityType
 {
-  BREW
+  BREW,
+  CAST,
+  OPPONENT_CAST,
+
 }
 
 class BoardEntity
@@ -14,6 +17,11 @@ class BoardEntity
   public Ingredient IngredientChange;
   // the price in rupees if this is a potion
   public int Price;
+  // in the first league: always 0; later: 1 if this is a castable player spell
+  public bool IsCastable;
+
+  public bool IsBrew => Type == EntityType.BREW;
+  public bool IsCast => Type == EntityType.CAST;
 
   public BoardEntity(string[] inputs)
   {
@@ -27,7 +35,7 @@ class BoardEntity
     int taxCount =
       int.Parse(inputs[8]); // in the first two leagues: always 0; later: the amount of taxed tier-0 ingredients you
     // gain from learning this spell
-    bool castable = inputs[9] != "0"; // in the first league: always 0; later: 1 if this is a castable player spell
+    IsCastable = inputs[9] != "0";
     bool
       repeatable =
         inputs[10] != "0"; // for the first two leagues: always 0; later: 1 if this is a repeatable player spell
