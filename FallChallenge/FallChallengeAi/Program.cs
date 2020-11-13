@@ -8,11 +8,12 @@ static class Program
 {
   static void Main(string[] args)
   {
-
     var input = new Input();
 
-    // game loop
-    while (true)
+
+    int? targetLearn = null;
+
+    for(var tick = 0; ; ++tick)
     {
       var gs = new GameState();
 
@@ -23,20 +24,32 @@ static class Program
       for (var i = 0; i < 2; i++)
         gs.Witches.Add(new Witch(input.LineArgs()));
 
-
-      // Write an action using Console.WriteLine()
       // To debug: Console.Error.WriteLine("Debug messages...");
 
-      FindStep(gs.Brews.First(), gs).Execute();
+      if (targetLearn.HasValue && gs.Learns.All(x => x.Id != targetLearn.Value))
+      {
+        targetLearn = null;
+      }
+
+      if (!targetLearn.HasValue && gs.Casts.Count() < 10)
+      {
+        targetLearn = gs.Learns.First(x => x.TomeIndex == 0).Id;
+      }
+
+      if (targetLearn.HasValue)
+      {
+        var learn = gs.Learns.First(x => x.Id == targetLearn);
+        FindStep(new StepLearn(learn), gs).Execute();
+      }
+      else
+        FindStep(new StepBrew(gs.Brews.First()), gs).Execute();
 
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
     }
   }
 
-  static Step FindStep(BoardEntity brew, GameState gs)
+  static Step FindStep(Step step, GameState gs)
   {
-    Step step = new StepBrew(brew);
-
     while (!step.CanExecute(gs))
     {
       var nextStep = step.ProduceSubSteps(gs).First();

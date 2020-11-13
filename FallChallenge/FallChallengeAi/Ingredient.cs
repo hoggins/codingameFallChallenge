@@ -48,6 +48,15 @@ struct Ingredient
     return null;
   }
 
+  public (byte, short)? DeficitComponentPair()
+  {
+    if (T0 < 0) return (0, T0);
+    if (T1 < 0) return (1, T1);
+    if (T2 < 0) return (2, T2);
+    if (T3 < 0) return (3, T3);
+    return null;
+  }
+
   public static Ingredient operator +(Ingredient a, Ingredient b)
   {
     return new Ingredient
@@ -56,6 +65,17 @@ struct Ingredient
       T1 = (short) (a.T1 + b.T1),
       T2 = (short) (a.T2 + b.T2),
       T3 = (short) (a.T3 + b.T3),
+    };
+  }
+
+  public static Ingredient operator *(Ingredient a, int b)
+  {
+    return new Ingredient
+    {
+      T0 = (short) (a.T0 * b),
+      T1 = (short) (a.T1 * b),
+      T2 = (short) (a.T2 * b),
+      T3 = (short) (a.T3 * b),
     };
   }
 }

@@ -5,7 +5,7 @@ enum EntityType
   BREW,
   CAST,
   OPPONENT_CAST,
-
+  LEARN,
 }
 
 class BoardEntity
@@ -17,11 +17,16 @@ class BoardEntity
   public Ingredient IngredientChange;
   // the price in rupees if this is a potion
   public int Price;
-  // in the first league: always 0; later: 1 if this is a castable player spell
+  // 1 if this is a castable player spell
   public bool IsCastable;
+  // the index in the tome if this is a tome spell, equal to the read-ahead tax
+  public int TomeIndex;
+  // 1 if this is a repeatable player spell
+  public bool IsRepeatable;
 
   public bool IsBrew => Type == EntityType.BREW;
   public bool IsCast => Type == EntityType.CAST;
+  public bool IsLearn => Type == EntityType.LEARN;
 
   public BoardEntity(string[] inputs)
   {
@@ -29,15 +34,9 @@ class BoardEntity
     Type = (EntityType) Enum.Parse(typeof(EntityType), inputs[1]);
     IngredientChange = new Ingredient(inputs, 2);
     Price = int.Parse(inputs[6]);
-    int tomeIndex =
-      int.Parse(inputs[7]); // in the first two leagues: always 0; later: the index in the tome if this is a tome spell,
-    // equal to the read-ahead tax
-    int taxCount =
-      int.Parse(inputs[8]); // in the first two leagues: always 0; later: the amount of taxed tier-0 ingredients you
-    // gain from learning this spell
+    TomeIndex = int.Parse(inputs[7]);
+    int taxCount = int.Parse(inputs[8]); //  the amount of taxed tier-0 ingredients you gain from learning this spell
     IsCastable = inputs[9] != "0";
-    bool
-      repeatable =
-        inputs[10] != "0"; // for the first two leagues: always 0; later: 1 if this is a repeatable player spell
+    IsRepeatable = inputs[10] != "0";
   }
 }
