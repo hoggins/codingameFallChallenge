@@ -34,9 +34,16 @@ struct Ingredient
     return T0 + T1 + T2 + T3;
   }
 
-  public bool AboveZero(Ingredient o)
+  public bool CanPay(Ingredient o)
   {
-    return T0 + o.T0 >= 0 && T1 + o.T1 >= 0 && T2 + o.T2 >= 0 && T3 + o.T3 >= 0;
+    // var old = T0 + o.T0 >= 0 && T1 + o.T1 >= 0 && T2 + o.T2 >= 0 && T3 + o.T3 >= 0;
+    var n =   (o.T0 >= 0 || T0 >= -o.T0)
+                       && (o.T1 >= 0 || T1 >= -o.T1)
+                       && (o.T2 >= 0 || T2 >= -o.T2)
+                       && (o.T3 >= 0 || T3 >= -o.T3);
+    // if (old != n)
+      // throw new Exception("why ?");
+    return n;
   }
 
   public Ingredient Abs()

@@ -45,8 +45,6 @@
         <Compile Include="Input.cs" />
         <Compile Include="Program.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
-        <Compile Include="SortedCollection.cs" />
-        <Compile Include="Step.cs" />
         <Compile Include="Witch.cs" />
     </ItemGroup>
     <ItemGroup>
