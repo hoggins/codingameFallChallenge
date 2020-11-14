@@ -4,9 +4,11 @@ using System.Linq;
 
 abstract class Step
 {
-  public abstract bool CanExecute(GameState gs);
+  public abstract bool CanExecute(Branch branch);
 
-  public abstract List<Step> ProduceSubSteps(GameState gs);
+  public abstract List<Step> ProduceSubSteps(Branch branch);
+
+  public abstract void SimulateExecute(Branch branch);
 
   public abstract void Execute();
 }
@@ -20,27 +22,28 @@ class StepBrew : Step
     _brew = brew;
   }
 
-  public override bool CanExecute(GameState gs)
+  public override bool CanExecute(Branch gs)
   {
-    return !Deficit(gs).HasValue;
+    throw new NotImplementedException();
   }
 
-  public override List<Step> ProduceSubSteps(GameState gs)
+  public override List<Step> ProduceSubSteps(Branch branch)
   {
-    var deficit = Deficit(gs);
+    var totalDeficit = branch.Deficit;
+    var deficit = totalDeficit.DeficitComponentPair();
     if (!deficit.HasValue)
       throw new Exception("logic error. should have been already executed");
-    return Heuristic.FindCasts(gs, deficit.Value, _brew.IngredientChange[deficit.Value]);
+    return Heuristic.FindCasts(branch, deficit.Value.Item1, deficit.Value.Item2);
+  }
+
+  public override void SimulateExecute(Branch branch)
+  {
+    branch.Deficit += _brew.IngredientChange;
   }
 
   public override void Execute()
   {
     Console.WriteLine("BREW "+_brew.Id);
-  }
-
-  private byte? Deficit(GameState gs)
-  {
-    return (gs.Myself.Inventory + _brew.IngredientChange).DeficitComponent();
   }
 }
 
@@ -55,20 +58,35 @@ class StepCast : Step
     _count = count;
   }
 
-  public override bool CanExecute(GameState gs)
+  public override bool CanExecute(Branch branch)
   {
-    return _cast.IsCastable && !Deficit(gs).HasValue;
+    return branch.IsCastable(_cast) && !Deficit(branch).HasValue;
   }
 
-  public override List<Step> ProduceSubSteps(GameState gs)
+  public override List<Step> ProduceSubSteps(Branch branch)
   {
-    var deficit = Deficit(gs);
-    if (deficit.HasValue)
-      return Heuristic.FindCasts(gs, deficit.Value.Item1, deficit.Value.Item2);
-
-    if (!_cast.IsCastable)
+    if (!branch.IsCastable(_cast))
       return new List<Step>{new StepReset()};
+
+    var deficit = branch.Deficit.DeficitComponentPair();
+    if (deficit.HasValue && deficit.Value.Item2 < -10)
+      // consider impossible
+      return null;
+
+    if (deficit.HasValue)
+      return Heuristic.FindCasts(branch, deficit.Value.Item1, deficit.Value.Item2);
+
     throw new Exception("should have been already executed");
+  }
+
+  public override void SimulateExecute(Branch branch)
+  {
+    var change = _cast.IngredientChange * _count;
+
+
+
+    branch.Inventory = branch.Inventory + change;
+    branch.Cast(_cast.Id);
   }
 
   public override void Execute()
@@ -76,22 +94,27 @@ class StepCast : Step
     Console.WriteLine($"CAST {_cast.Id} {_count}");
   }
 
-  private (byte, short)? Deficit(GameState gs)
+  private (byte, short)? Deficit(Branch branch)
   {
-    return (gs.Myself.Inventory + (_cast.IngredientChange*_count)).DeficitComponentPair();
+    return (branch.Inventory + (_cast.IngredientChange*_count)).DeficitComponentPair();
   }
 }
 
 class StepReset : Step
 {
-  public override bool CanExecute(GameState gs)
+  public override bool CanExecute(Branch gs)
   {
     return true;
   }
 
-  public override List<Step> ProduceSubSteps(GameState gs)
+  public override List<Step> ProduceSubSteps(Branch gs)
   {
-    throw new NotImplementedException();
+    return new List<Step>{gs.Steps[gs.Steps.Count - 2]};
+  }
+
+  public override void SimulateExecute(Branch branch)
+  {
+    branch.CastReset();
   }
 
   public override void Execute()
@@ -109,14 +132,19 @@ class StepLearn : Step
     _learn = learn;
   }
 
-  public override bool CanExecute(GameState gs)
+  public override bool CanExecute(Branch branch)
   {
-    return _learn.TomeIndex <= gs.Myself.Inventory.T0;
+    return _learn.TomeIndex <= branch.State.Myself.Inventory.T0;
   }
 
-  public override List<Step> ProduceSubSteps(GameState gs)
+  public override List<Step> ProduceSubSteps(Branch branch)
   {
-    return Heuristic.FindCasts(gs, 0, _learn.TomeIndex);
+    return Heuristic.FindCasts(branch, 0, _learn.TomeIndex);
+  }
+
+  public override void SimulateExecute(Branch branch)
+  {
+    throw new NotImplementedException();
   }
 
   public override void Execute()
@@ -127,9 +155,23 @@ class StepLearn : Step
 
 static class Heuristic
 {
-  public static List<Step> FindCasts(GameState gs, byte deficit, int value)
+  public static List<Step> FindCasts(Branch branch, byte deficit, int value)
   {
-    return gs.Casts
+    var res = new List<Step>();
+    foreach (var cast in branch.State.Casts)
+    {
+      var change = cast.IngredientChange[deficit];
+      if (change <= 0)
+        continue;
+      var count = CalcCasts(value, change, cast.IsRepeatable);
+      res.Add((Step) new StepCast(cast, count));
+    }
+
+    return res;
+  }
+  public static List<Step> FindCasts_nice(Branch branch, byte deficit, int value)
+  {
+    return branch.State.Casts
       .Where(x => x.IngredientChange[deficit] > 0)
       .OrderBy(x=>CalcDist(value, x.IngredientChange[deficit], x.IsRepeatable))
       .Select(x => (Step) new StepCast(x, CalcCasts(value, x.IngredientChange[deficit], x.IsRepeatable)))
