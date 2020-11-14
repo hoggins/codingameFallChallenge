@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using FallChallengeAi;
 
 static class Program
 {
@@ -57,7 +58,7 @@ static class Program
         FindStep(new StepLearn(learn), gs).Execute();
       }
       else
-        FindMultiBranch(gs.Brews.First(), gs).Execute();
+        FindForward(gs.Brews.First(), gs).Execute();
 
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
     }
@@ -70,7 +71,6 @@ static class Program
       State = gs,
       Brew = null,
       Inventory = gs.Myself.Inventory,
-      Steps = new List<Step>{step}
     };
 
     while (!step.CanExecute(srcBranch))
@@ -82,123 +82,105 @@ static class Program
     return step;
   }
 
-  static Step FindMultiBranch(BoardEntity brew, GameState gs)
+  class BranchComparer : IComparer<Branch>
+  {
+    public int Compare(Branch a, Branch b)
+    {
+      return a.Score.CompareTo(b.Score);
+    }
+  }
+
+  static BoardMove FindForward(BoardEntity brew, GameState gs)
   {
     var srcBranch = new Branch
     {
       State = gs,
-      Brew = brew,
       Inventory = gs.Myself.Inventory,
     };
 
-    var branches = new List<Branch>();
-    var nextBranches = new List<Branch>();
-
+    var branches = new SortedCollection<Branch>(new BranchComparer());
     branches.Add(srcBranch);
 
-    while (branches.Any())
+    while (true)
     {
-      foreach (var branch in branches)
+      var branch = branches.Dequeue();
+      //foreach (var branch in branches)
       {
-        if (branch.IsBrewComplete)
+        if (branch.Moves.Count == 5)
         {
-          return branch.Steps.Last();
+          return branch.Moves.First();
         }
 
-        var nextSteps = branch.Steps.Last().ProduceSubSteps(branch);
-        if (nextSteps == null || nextSteps.Count == 0)
+        var possibleMoves = GenerateMoves(branch).ToArray();
+        if (possibleMoves.Length == 0)
           continue;
 
-        for (var i = 0; i < nextSteps.Count - 1; i++)
+        for (var i = 0; i < possibleMoves.Length - 1; i++)
         {
-          var step = nextSteps[i];
+          var move = possibleMoves[i];
           var newBranch = srcBranch.Clone();
-          newBranch.ApplyStep(step);
-          nextBranches.Add(newBranch);
+          newBranch.Simulate(move);
+          branches.Add(newBranch);
         }
 
-        branch.ApplyStep(nextSteps.Last());
-        nextBranches.Add(branch);
+        branch.Simulate(possibleMoves.Last());
+        branches.Add(branch);
       }
 
-      var pass = branches;
-      branches = nextBranches;
-      nextBranches = pass;
-      nextBranches.Clear();
     }
 
     throw new Exception("dead end");
-    //return step;
   }
 
+  private static IEnumerable<BoardMove> GenerateMoves(Branch branch)
+  {
+    var anyRest = false;
+    foreach (var cast in branch.State.Casts)
+    {
+      if (!branch.IsCastable(cast))
+      {
+        anyRest = true;
+        continue;
+      }
+
+      for (var i = 1; i < 4 && branch.Inventory.AboveZero(cast.IngredientChange*i); i++)
+      {
+        yield return new MoveCast(cast, i);
+      }
+    }
+    if (anyRest)
+      yield return new MoveReset();
+  }
 }
 
-class Branch
+abstract class BoardMove
 {
-  public GameState State;
-  public BoardEntity Brew;
-  public Ingredient Inventory;
-  public List<Step> Steps;
+  public abstract void Simulate(Branch branch);
+  public abstract void Execute();
+}
 
-  public Dictionary<int, EntityOverride> Overrides = new Dictionary<int, EntityOverride>();
+class MoveCast : BoardMove
+{
+  private readonly BoardEntity _cast;
+  private readonly int _count;
 
-  public bool IsBrewComplete => Inventory.AboveZero(Brew.IngredientChange);
-
-  public Branch Clone()
+  public MoveCast(BoardEntity cast, int count)
   {
-    return new Branch
-    {
-      State = State,
-      Brew = Brew,
-      Inventory = Inventory,
-      Steps = new List<Step>(Steps),
-      Overrides = Overrides.ToDictionary(x=>x.Key, x=>x.Value.Clone())
-    };
+    _cast = cast;
+    _count = count;
   }
 
-  public void ApplyStep(Step step)
-  {
-    Steps.Add(step);
-    step.SimulateExecute(this);
-  }
+  public override void Simulate(Branch branch) => branch.Cast(_cast, _count);
 
-  public bool IsCastable(BoardEntity cast)
-  {
-    if (Overrides.TryGetValue(cast.Id, out var entity))
-      return entity.IsCastable;
-    return cast.IsCastable;
-  }
+  public override void Execute() => Console.WriteLine($"CAST {_cast.Id} {_count}");
+}
 
-  public void Cast(int castId)
-  {
-    var over = GetOrAddOverride(castId);
-    over.IsCastable = false;
-  }
 
-  public void CastReset()
-  {
-    foreach (var pair in Overrides)
-    {
-      pair.Value.IsCastable = true;
-    }
-  }
+class MoveReset : BoardMove
+{
+  public override void Simulate(Branch branch) => branch.CastReset();
 
-  private EntityOverride GetOrAddOverride(int castId)
-  {
-    if (!Overrides.TryGetValue(castId, out var entity))
-      Overrides[castId] = entity = new EntityOverride();
-    return entity;
-
-  }
-
-  public void Print()
-  {
-    for (var i = 0; i < Steps.Count && i < 10; i++)
-    {
-      var step = Steps[i];
-      Output.Write($"{step.GetType().Name}  => ");
-    }
-  }
+  public override void Execute() => Console.WriteLine("REST");
 }
 
 class EntityOverride
