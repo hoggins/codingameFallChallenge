@@ -129,4 +129,9 @@ struct Ingredient
     if (T3 != 0) ++r;
     return r;
   }
+
+  public override string ToString()
+  {
+    return $"[{T0}, {T1}, {T2}, {T3}]";
+  }
 }

@@ -25,6 +25,8 @@ class BoardEntity
   // 1 if this is a repeatable player spell
   public bool IsRepeatable;
 
+  public bool IsFakeLearned;
+
   public bool IsBrew => Type == EntityType.BREW;
   public bool IsCast => Type == EntityType.CAST;
   public bool IsLearn => Type == EntityType.LEARN;

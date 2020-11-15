@@ -9,7 +9,6 @@ class Branch
   public Ingredient Inventory;
   public List<BoardMove> Moves = new List<BoardMove>();
 
-
   public Branch Clone()
   {
     return new Branch
@@ -51,7 +50,13 @@ class Branch
       // Score -= ScoreExcess(brew) * 1;
 
 
-      //Score -= (0.01/4*(10 -))
+      //Score += State.Casts.Count(x => x.Type == EntityType.LEARN && x.IsFakeLearned) * 0.1;
+
+      /*Score -= inventory.T0;
+      Score -= inventory.T1 * 2;
+      Score -= inventory.T2 * 3;
+      Score -= inventory.T3 * 4;*/
+
 
       idx++;
     }

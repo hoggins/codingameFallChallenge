@@ -81,11 +81,18 @@ static class Program
 
     var moves = GenerateCastMoves(gs).ToList();
 
-    for (int i = 0; i < 3000; i++)
+    for (int i = 0; i < 2000; i++)
     {
       srcBranch.Inventory = gs.Myself.Inventory;
+      foreach (var stateCast in srcBranch.State.Casts)
+        stateCast.IsFakeLearned = false;
 
-      var firstMove = PickMove(srcBranch, moves);
+      var firstMove = PickMove(srcBranch, moves, true);
+      if (firstMove == null)
+      {
+        Output.WriteLine("err " + srcBranch.Inventory);
+        throw new Exception("");
+      }
       firstMove.Simulate(srcBranch);
 
       for (int j = 0; j < 30; j++)
@@ -125,22 +132,28 @@ static class Program
     return best.Value;
   }
 
-  private static MoveCast PickMove(Branch branch, List<MoveCast> casts)
+  private static MoveCast PickMove(Branch branch, List<MoveCast> casts, bool isfirst = false)
   {
     MoveCast lastMove = null;
     var castsCount = casts.Count;
     var rnd = Program.Rnd.Next(castsCount);
+    var maxSize = isfirst ? 10 - branch.Inventory.Total() : 0;
     for (var index = 0; index < castsCount; index++)
     {
       var cast = casts[index];
-      if (branch.Inventory.T0 >= cast.Required.T0
-          && branch.Inventory.T1 >= cast.Required.T1
-          && branch.Inventory.T2 >= cast.Required.T2
-          && branch.Inventory.T3 >= cast.Required.T3)
+      var required = cast.Cast.Type == EntityType.LEARN && !cast.Cast.IsFakeLearned
+        ? cast.RequiredLearn
+        : cast.Required;
+      if (isfirst && maxSize < cast.Size)
+        continue;
+      if (branch.Inventory.T0 >= required.T0
+          && branch.Inventory.T1 >= required.T1
+          && branch.Inventory.T2 >= required.T2
+          && branch.Inventory.T3 >= required.T3)
       {
+        lastMove = cast;
         if (index >= rnd)
           return cast;
-        lastMove = cast;
       }
     }
 
@@ -176,8 +189,9 @@ abstract class BoardMove
 
 class MoveCast : BoardMove
 {
-  public readonly int Key;
+  public readonly int Size;
   public readonly Ingredient Required;
+  public readonly Ingredient RequiredLearn;
   public readonly Ingredient TotalChnge;
 
   public readonly List<double> Outcomes = new List<double>();
@@ -190,22 +204,23 @@ class MoveCast : BoardMove
     Cast = cast;
     Count = count;
 
-    Key = (cast.Id << 4) + count;
+
 
     Required = Cast.IngredientPay * Count;
     TotalChnge = Cast.IngredientChange * Count;
+    Size = TotalChnge.Total();
     if (Cast.Type == EntityType.LEARN)
     {
-      Required.T0 += (short)Cast.TomeIndex;
-      TotalChnge.T0 -= (short)Cast.TomeIndex;
+      RequiredLearn = Required;
+      RequiredLearn.T0 += (short)Cast.TomeIndex;
+      //TotalChnge.T0 -= (short)Cast.TomeIndex;
     }
-
-
   }
 
   public override void Simulate(Branch branch)
   {
     branch.Inventory += TotalChnge;
+    Cast.IsFakeLearned = true;
   }
 
   public override string GetCommand() => $"CAST {Cast.Id} {Count} ";
