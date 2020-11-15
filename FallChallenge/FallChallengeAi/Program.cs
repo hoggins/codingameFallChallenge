@@ -59,7 +59,7 @@ static class Program
       else
       {
         var sw = Stopwatch.StartNew();
-        var cmd = FindForward(gs);
+        var cmd = FindForward(gs, sw);
         Console.WriteLine(cmd.GetCommand() + " " + cmd.Comment + " "+sw.ElapsedMilliseconds);
       }
 
@@ -68,7 +68,7 @@ static class Program
   }
 
 
-  static BoardMove FindForward(GameState gs)
+  static BoardMove FindForward(GameState gs, Stopwatch sw)
   {
     const int depth = 15;
 
