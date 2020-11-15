@@ -138,9 +138,9 @@ static class Program
           && branch.Inventory.T2 >= cast.Required.T2
           && branch.Inventory.T3 >= cast.Required.T3)
       {
+        lastMove = cast;
         if (index >= rnd)
           return cast;
-        lastMove = cast;
       }
     }
 
