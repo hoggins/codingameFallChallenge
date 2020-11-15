@@ -70,8 +70,8 @@ static class Program
 
   static BoardMove FindForward(GameState gs)
   {
-    // if (gs.Casts.Count < 8)
-      // return new MoveLearn(gs);
+    if (gs.Casts.Count < 12)
+      return new MoveLearn(gs);
 
     var srcBranch = new Branch
     {
