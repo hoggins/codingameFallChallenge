@@ -57,6 +57,17 @@ struct Ingredient
     };
   }
 
+  public Ingredient Deficit(Ingredient o)
+  {
+    return new Ingredient
+    {
+      T0 = (short) Math.Min(0, T0 + o.T0),
+      T1 = (short) Math.Min(0, T1 + o.T1),
+      T2 = (short) Math.Min(0, T2 + o.T2),
+      T3 = (short) Math.Min(0, T3 + o.T3),
+    };
+  }
+
   public byte? DeficitComponent()
   {
     if (T3 < 0) return 3;
@@ -95,5 +106,15 @@ struct Ingredient
       T2 = (short) (a.T2 * b),
       T3 = (short) (a.T3 * b),
     };
+  }
+
+  public int IngredientsCount()
+  {
+    var r = 0;
+    if (T0 != 0) ++r;
+    if (T1 != 0) ++r;
+    if (T2 != 0) ++r;
+    if (T3 != 0) ++r;
+    return r;
   }
 }

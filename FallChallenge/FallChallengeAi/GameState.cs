@@ -13,7 +13,7 @@ class GameState
 
   public void AddEntity(BoardEntity e)
   {
-    if (e.IsCast)
+    if (e.IsCast || e.IsLearn)
       Casts.Add(e);
     else
       Entities.Add(e);

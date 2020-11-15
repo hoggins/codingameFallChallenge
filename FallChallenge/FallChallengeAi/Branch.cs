@@ -22,18 +22,48 @@ class Branch
 
   public void Evaluate()
   {
-    Score = State.Brews.Sum(x=>ScoreBrew(x));
+    const int baseline = 10;
+    Score = 0;//.Sum((x)=>ScoreBrew(x));
+
+
+    var idx = 0;
+    foreach (var brew in State.Brews.OrderByDescending(x=>x.Price))
+    {
+      // Score += ScoreBrew(boardEntity) * idx;
+
+
+      var canBrew = Inventory.CanPay(brew.IngredientChange);
+      if (canBrew)
+        Score += brew.Price * 10;
+      else
+      {
+        Score += brew.Price * ScoreBrew(brew);
+        // var deficit = Inventory.Deficit(brew.IngredientChange);
+        // var penalty = Math.Pow(0.5, idx) * deficit.Total();
+        // var penalty = brew.Price * ((6 - idx) / 10d);
+        // Score -= penalty;
+      }
+
+      Score -= ScoreExcess(brew) * 0.5;
+
+
+      //Score -= (0.01/4*(10 -))
+
+      idx++;
+    }
+
     // Score = ScoreBrew(State.Brews.First());
 
     double ScoreBrew(BoardEntity brew)
     {
-      var s = SimpleScore(Inventory.T0, brew.IngredientChange.T0);
-      s += SimpleScore(Inventory.T1, brew.IngredientChange.T1);
-      s += SimpleScore(Inventory.T2, brew.IngredientChange.T2);
-      s += SimpleScore(Inventory.T3, brew.IngredientChange.T3);
-      return s;
+      var ingredientsCnt = brew.IngredientChange.IngredientsCount();
+      var part = 1; //10d / ingredientsCnt;
+      var s = SimpleScore(Inventory.T0, brew.IngredientChange.T0) * part;
+      s += SimpleScore(Inventory.T1, brew.IngredientChange.T1) * part;
+      s += SimpleScore(Inventory.T2, brew.IngredientChange.T2) * part;
+      s += SimpleScore(Inventory.T3, brew.IngredientChange.T3) * part;
+      return s / ingredientsCnt;
     }
-
     double SimpleScore(double v1, double v2)
     {
       if (v2 >= 0)
@@ -43,6 +73,18 @@ class Branch
         return 1;
       return v1 / v2;
     }
+
+    double ScoreExcess(BoardEntity brew)
+    {
+      var val = Inventory + brew.IngredientChange;
+      return Math.Max((short) 0, val.T0)
+             + Math.Max((short) 0, val.T1)
+             + Math.Max((short) 0, val.T2)
+             + Math.Max((short) 0, val.T3)
+        ;
+    }
+
+
   }
 
   public void Cast(BoardEntity cast, int count)
