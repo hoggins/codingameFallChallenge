@@ -14,6 +14,7 @@ class BoardEntity
   public int Id;
   // in the first league: BREW; later: CAST, OPPONENT_CAST, LEARN, BREW
   public EntityType Type;
+  public Ingredient IngredientPay;
   public Ingredient IngredientChange;
   // the price in rupees if this is a potion
   public int Price;
@@ -38,5 +39,13 @@ class BoardEntity
     int taxCount = int.Parse(inputs[8]); //  the amount of taxed tier-0 ingredients you gain from learning this spell
     IsCastable = inputs[9] != "0";
     IsRepeatable = inputs[10] != "0";
+
+    IngredientPay = new Ingredient
+    {
+      T0 = (short) (IngredientChange.T0 >= 0 ? 0 : -IngredientChange.T0),
+      T1 = (short) (IngredientChange.T1 >= 0 ? 0 : -IngredientChange.T1),
+      T2 = (short) (IngredientChange.T2 >= 0 ? 0 : -IngredientChange.T2),
+      T3 = (short) (IngredientChange.T3 >= 0 ? 0 : -IngredientChange.T3),
+    };
   }
 }

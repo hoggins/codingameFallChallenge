@@ -36,14 +36,15 @@ struct Ingredient
 
   public bool CanPay(Ingredient o)
   {
+    return T0 >= o.T0 && T1 >= o.T1 && T2 >= o.T2 && T3 >= o.T3;
     // var old = T0 + o.T0 >= 0 && T1 + o.T1 >= 0 && T2 + o.T2 >= 0 && T3 + o.T3 >= 0;
-    var n =   (o.T0 >= 0 || T0 >= -o.T0)
-                       && (o.T1 >= 0 || T1 >= -o.T1)
-                       && (o.T2 >= 0 || T2 >= -o.T2)
-                       && (o.T3 >= 0 || T3 >= -o.T3);
+    // var n =   (o.T0 >= 0 || T0 >= -o.T0)
+    // && (o.T1 >= 0 || T1 >= -o.T1)
+    // && (o.T2 >= 0 || T2 >= -o.T2)
+    // && (o.T3 >= 0 || T3 >= -o.T3);
     // if (old != n)
-      // throw new Exception("why ?");
-    return n;
+    // throw new Exception("why ?");
+    // return n;
   }
 
   public Ingredient Abs()
@@ -94,6 +95,17 @@ struct Ingredient
       T1 = (short) (a.T1 + b.T1),
       T2 = (short) (a.T2 + b.T2),
       T3 = (short) (a.T3 + b.T3),
+    };
+  }
+
+  public static Ingredient operator -(Ingredient a, Ingredient b)
+  {
+    return new Ingredient
+    {
+      T0 = (short) (a.T0 - b.T0),
+      T1 = (short) (a.T1 - b.T1),
+      T2 = (short) (a.T2 - b.T2),
+      T3 = (short) (a.T3 - b.T3),
     };
   }
 

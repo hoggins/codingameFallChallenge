@@ -9,7 +9,7 @@ class GameState
   public Witch Myself => Witches[0];
   public IEnumerable<BoardEntity> Learns => Entities.Where(x => x.IsLearn);
   public readonly List<BoardEntity> Casts = new List<BoardEntity>();
-  public IEnumerable<BoardEntity> Brews => Entities.Where(x => x.IsBrew);
+  public List<BoardEntity> Brews;
 
   public void AddEntity(BoardEntity e)
   {

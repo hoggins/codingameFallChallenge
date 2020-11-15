@@ -44,9 +44,14 @@ static class Program
       for (var i = 0; i < 2; i++)
         gs.Witches.Add(new Witch(input.LineArgs()));
 
+      gs.Brews = gs.Entities
+        .Where(x => x.IsBrew)
+        .OrderByDescending(x => x.Price)
+        .ToList();
+
       // To debug: Console.Error.WriteLine("Debug messages...");
 
-      var producable = gs.Brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.IngredientChange));
+      var producable = gs.Brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.IngredientPay));
       if (producable != null)
       {
         Console.WriteLine("BREW " + producable.Id);
@@ -76,10 +81,6 @@ static class Program
 
     var moves = GenerateCastMoves(gs).ToList();
 
-
-    var moveScores = new Dictionary<int, List<double>>();
-
-
     for (int i = 0; i < 3000; i++)
     {
       srcBranch.Inventory = gs.Myself.Inventory;
@@ -87,7 +88,7 @@ static class Program
       var firstMove = PickMove(srcBranch, moves);
       firstMove.Simulate(srcBranch);
 
-      for (int j = 0; j < 15; j++)
+      for (int j = 0; j < 30; j++)
       {
         var pickMove = PickMove(srcBranch, moves);
         pickMove.Simulate(srcBranch);
@@ -95,38 +96,30 @@ static class Program
 
       srcBranch.Evaluate();
 
-      var id = (firstMove.Cast.Id << 4) + firstMove.Count;
-      if (!moveScores.TryGetValue(id, out var line))
-        moveScores.Add(id, line = new List<double>());
-      line.Add(srcBranch.Score);
+      firstMove.Outcomes.Add(srcBranch.Score);
     }
 
-    var (avgScore, pair) = FindMax(moveScores);
-    var finalId = pair.Key >> 4;
-    var cast = gs.Casts.First(x => x.Id == finalId);
+    var (move, avgScore) = FindMax(moves);
 
-    // if (avgScore < 100)
-      // return new MoveLearn(gs).WithComment(avgScore.ToString("0.##"));
+    if (move.Cast.IsLearn)
+      return new MoveLearn(move.Cast);
 
-    if (cast.IsLearn)
-      return new MoveLearn(cast);
-
-    if (!cast.IsCastable)
+    if (!move.Cast.IsCastable)
       return new MoveReset().WithComment(avgScore.ToString("0.##"));
 
-    var count = pair.Key & 0xf;
-    var move = new MoveCast(cast, count).WithComment(avgScore.ToString("0.##"));
-    return move;
+    return move.WithComment(avgScore.ToString("0.##"));
   }
 
-  private static (double, KeyValuePair<int, List<double>>) FindMax(Dictionary<int,List<double>> moveScores)
+  private static (MoveCast, double) FindMax(List<MoveCast> moves)
   {
-    var best = ((double, KeyValuePair<int, List<double>>)?) null;
-    foreach (var pair in moveScores)
+    var best = ((MoveCast, double)?) null;
+    foreach (var move in moves)
     {
-      var score = pair.Value.Average();
-      if (!best.HasValue || best.Value.Item1 < score)
-        best = (score, pair);
+      if (move.Outcomes.Count == 0)
+        continue;
+      var score = move.Outcomes.Average();
+      if (!best.HasValue || best.Value.Item2 < score)
+        best = (move, score);
     }
 
     return best.Value;
@@ -140,13 +133,15 @@ static class Program
     for (var index = 0; index < castsCount; index++)
     {
       var cast = casts[index];
-      if (cast.Cast.Type == EntityType.LEARN && cast.Cast.TomeIndex > branch.Inventory.T0)
-        continue;
-      if (!branch.Inventory.CanPay(cast.Required))
-        continue;
-      lastMove = cast;
-      if (index >= rnd)
-        return cast;
+      if (branch.Inventory.T0 >= cast.Required.T0
+          && branch.Inventory.T1 >= cast.Required.T1
+          && branch.Inventory.T2 >= cast.Required.T2
+          && branch.Inventory.T3 >= cast.Required.T3)
+      {
+        if (index >= rnd)
+          return cast;
+        lastMove = cast;
+      }
     }
 
     return lastMove;
@@ -181,7 +176,11 @@ abstract class BoardMove
 
 class MoveCast : BoardMove
 {
+  public readonly int Key;
   public readonly Ingredient Required;
+  public readonly Ingredient TotalChnge;
+
+  public readonly List<double> Outcomes = new List<double>();
 
   public readonly BoardEntity Cast;
   public readonly int Count;
@@ -191,10 +190,23 @@ class MoveCast : BoardMove
     Cast = cast;
     Count = count;
 
-    Required = Cast.IngredientChange * Count;
+    Key = (cast.Id << 4) + count;
+
+    Required = Cast.IngredientPay * Count;
+    TotalChnge = Cast.IngredientChange * Count;
+    if (Cast.Type == EntityType.LEARN)
+    {
+      Required.T0 += (short)Cast.TomeIndex;
+      TotalChnge.T0 -= (short)Cast.TomeIndex;
+    }
+
+
   }
 
-  public override void Simulate(Branch branch) => branch.Cast(Cast, Count);
+  public override void Simulate(Branch branch)
+  {
+    branch.Inventory += TotalChnge;
+  }
 
   public override string GetCommand() => $"CAST {Cast.Id} {Count} ";
 }

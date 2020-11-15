@@ -25,26 +25,30 @@ class Branch
     const int baseline = 10;
     Score = 0;//.Sum((x)=>ScoreBrew(x));
 
+    var inventory = Inventory;
 
-    var idx = 0;
-    foreach (var brew in State.Brews.OrderByDescending(x=>x.Price))
+    var idx = 1;
+    foreach (var brew in State.Brews)
     {
       // Score += ScoreBrew(boardEntity) * idx;
 
 
-      var canBrew = Inventory.CanPay(brew.IngredientChange);
+      var canBrew = Inventory.CanPay(brew.IngredientPay);
       if (canBrew)
-        Score += brew.Price * 10;
+      {
+        Score += brew.Price;
+        inventory -= brew.IngredientPay;
+      }
       else
       {
-        Score += brew.Price * ScoreBrew(brew);
+        // Score += brew.Price * ScoreBrew(brew);
         // var deficit = Inventory.Deficit(brew.IngredientChange);
         // var penalty = Math.Pow(0.5, idx) * deficit.Total();
         // var penalty = brew.Price * ((6 - idx) / 10d);
         // Score -= penalty;
       }
 
-      Score -= ScoreExcess(brew) * 0.5;
+      // Score -= ScoreExcess(brew) * 1;
 
 
       //Score -= (0.01/4*(10 -))
