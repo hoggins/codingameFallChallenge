@@ -86,6 +86,7 @@ static class Program
     for (int i = 0; i < 100000; i++)
     {
       srcBranch.Inventory = gs.Myself.Inventory;
+      srcBranch.Score = 0;
 
       var firstMove = PickMove(srcBranch, moves);
       firstMove.Simulate(srcBranch);
@@ -93,7 +94,19 @@ static class Program
       for (int j = 0; j < depth; j++)
       {
         var pickMove = PickMove(srcBranch, moves);
+        if (pickMove == null)
+          break;
         pickMove.Simulate(srcBranch);
+
+        foreach (var brew in srcBranch.State.Brews)
+        {
+          var canBrew = srcBranch.Inventory.CanPay(brew.IngredientPay);
+          if (canBrew)
+          {
+            srcBranch.Inventory -= brew.IngredientPay;
+            srcBranch.Score += brew.Price * (1 + (depth - j)/(double)depth * 2);
+          }
+        }
       }
 
       srcBranch.Evaluate();
@@ -106,6 +119,8 @@ static class Program
         break;
       }
     }
+
+    //PrintMoveScores(moves);
 
     var (move, avgScore) = FindMax(moves);
 
@@ -138,10 +153,12 @@ static class Program
     MoveCast lastMove = null;
     var castsCount = casts.Count;
     var rnd = Program.Rnd.Next(castsCount);
+    var space = 10 - branch.Inventory.Total();
     for (var index = 0; index < castsCount; index++)
     {
       var cast = casts[index];
-      if (branch.Inventory.T0 >= cast.Required.T0
+      if (space >= cast.Size
+          && branch.Inventory.T0 >= cast.Required.T0
           && branch.Inventory.T1 >= cast.Required.T1
           && branch.Inventory.T2 >= cast.Required.T2
           && branch.Inventory.T3 >= cast.Required.T3)
@@ -166,6 +183,18 @@ static class Program
       }
     }
   }
+
+  private static void PrintMoveScores(List<MoveCast> moves)
+  {
+    foreach (var move in moves)
+    {
+      var subset = move.Outcomes;//.Where(x=>x > 0).ToArray();
+      if (subset.Count == 0)
+        continue;
+      var score = subset.Average();
+      Output.WriteLine($"{move.Cast} {score:0.00}");
+    }
+  }
 }
 
 abstract class BoardMove
@@ -184,7 +213,7 @@ abstract class BoardMove
 
 class MoveCast : BoardMove
 {
-  public readonly int Key;
+  public readonly int Size;
   public readonly Ingredient Required;
   public readonly Ingredient TotalChnge;
 
@@ -198,8 +227,6 @@ class MoveCast : BoardMove
     Cast = cast;
     Count = count;
 
-    Key = (cast.Id << 4) + count;
-
     Required = Cast.IngredientPay * Count;
     TotalChnge = Cast.IngredientChange * Count;
     if (Cast.Type == EntityType.LEARN)
@@ -208,6 +235,7 @@ class MoveCast : BoardMove
       TotalChnge.T0 -= (short)Cast.TomeIndex;
     }
 
+    Size = TotalChnge.Total();
 
   }
 

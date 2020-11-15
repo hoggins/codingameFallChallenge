@@ -29,6 +29,8 @@ class BoardEntity
   public bool IsCast => Type == EntityType.CAST;
   public bool IsLearn => Type == EntityType.LEARN;
 
+  public int BrewIngredientCount;
+
   public BoardEntity(string[] inputs)
   {
     Id = int.Parse(inputs[0]);
@@ -47,5 +49,13 @@ class BoardEntity
       T2 = (short) (IngredientChange.T2 >= 0 ? 0 : -IngredientChange.T2),
       T3 = (short) (IngredientChange.T3 >= 0 ? 0 : -IngredientChange.T3),
     };
+
+    if (IsBrew)
+      BrewIngredientCount = IngredientChange.IngredientsCount();
+  }
+
+  public override string ToString()
+  {
+    return $"{Id}: {IngredientChange}";
   }
 }
