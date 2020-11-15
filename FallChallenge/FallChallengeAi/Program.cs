@@ -70,6 +70,8 @@ static class Program
 
   static BoardMove FindForward(GameState gs)
   {
+    const int depth = 15;
+
     if (gs.Casts.Count < 12)
       return new MoveLearn(gs);
 
@@ -81,14 +83,14 @@ static class Program
 
     var moves = GenerateCastMoves(gs).ToList();
 
-    for (int i = 0; i < 3000; i++)
+    for (int i = 0; i < 100000; i++)
     {
       srcBranch.Inventory = gs.Myself.Inventory;
 
       var firstMove = PickMove(srcBranch, moves);
       firstMove.Simulate(srcBranch);
 
-      for (int j = 0; j < 30; j++)
+      for (int j = 0; j < depth; j++)
       {
         var pickMove = PickMove(srcBranch, moves);
         pickMove.Simulate(srcBranch);
@@ -97,6 +99,12 @@ static class Program
       srcBranch.Evaluate();
 
       firstMove.Outcomes.Add(srcBranch.Score);
+
+      if (i % 100 == 0 && sw.ElapsedMilliseconds > 45)
+      {
+        Output.WriteLine("s:" + i);
+        break;
+      }
     }
 
     var (move, avgScore) = FindMax(moves);
