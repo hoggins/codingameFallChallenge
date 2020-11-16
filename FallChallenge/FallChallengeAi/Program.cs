@@ -2,7 +2,6 @@
 using System.Linq;
 using System.IO;
 using System.Text;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -76,55 +75,23 @@ static class Program
 
   static BoardMove FindForward(GameState gs, Stopwatch sw)
   {
-    const int depth = 30;
-
     if (gs.Casts.Count < 12)
       return new MoveLearn(gs);
 
-    var srcBranch = new Branch
+    var branch = new Branch
     {
       State = gs,
       Inventory = gs.Myself.Inventory,
     };
 
     var moves = GenerateCastMoves(gs).ToList();
-
-    for (int i = 0; ; i++)
+    for (var rollIdx = 0; ; rollIdx++)
     {
-      srcBranch.Inventory = gs.Myself.Inventory;
-      srcBranch.Score = 0;
+      Rollout(gs, branch, rollIdx, moves);
 
-      var firstMove = PickMove(srcBranch, moves);
-      firstMove.Simulate(srcBranch);
-
-      for (int j = 0; j < depth; j++)
+      if (rollIdx % 100 == 0 && sw.ElapsedMilliseconds > 45)
       {
-        var pickMove = PickMove(srcBranch, moves);
-        if (pickMove == null)
-          break;
-        pickMove.Simulate(srcBranch);
-
-        foreach (var brew in srcBranch.State.Brews)
-        {
-          if (brew.DoneAtCicle == i)
-            continue;
-          var canBrew = srcBranch.Inventory.CanPay(brew.IngredientPay);
-          if (canBrew)
-          {
-            brew.DoneAtCicle = i;
-            srcBranch.Inventory -= brew.IngredientPay;
-            srcBranch.Score += brew.Price * (1 + (depth - j)/(double)depth * 1);
-          }
-        }
-      }
-
-      srcBranch.Evaluate(i);
-
-      firstMove.Outcomes.Add(srcBranch.Score);
-
-      if (i % 100 == 0 && sw.ElapsedMilliseconds > 45)
-      {
-        AddComment(ToShortNumber(i));
+        AddComment(ToShortNumber(rollIdx));
         break;
       }
     }
@@ -133,6 +100,9 @@ static class Program
 
     var (move, avgScore) = FindMax(moves);
     //AddComment(ToShortNumber(avgScore));
+
+    foreach (var toDispose in moves)
+      toDispose.Dispose();
 
     if (move.Cast.IsLearn)
       return new MoveLearn(move.Cast);
@@ -143,11 +113,39 @@ static class Program
     return move;
   }
 
-  private static string ToShortNumber(int val)
+  private static void Rollout(GameState gs, Branch branch, int rollIdx, List<MoveCast> moves)
   {
-    if (val > 1000)
-      return (val / 1000d).ToString("0.#") + "k";
-    return val.ToString();
+    const int depth = 30;
+    branch.Inventory = gs.Myself.Inventory;
+    branch.Score = 0;
+
+    var firstMove = PickMove(branch, moves);
+    firstMove.Simulate(branch);
+
+    for (int j = 0; j < depth; j++)
+    {
+      var pickMove = PickMove(branch, moves);
+      if (pickMove == null)
+        break;
+      pickMove.Simulate(branch);
+
+      foreach (var brew in branch.State.Brews)
+      {
+        if (brew.DoneAtCicle == rollIdx)
+          continue;
+        var canBrew = branch.Inventory.CanPay(brew.IngredientPay);
+        if (canBrew)
+        {
+          brew.DoneAtCicle = rollIdx;
+          branch.Inventory -= brew.IngredientPay;
+          branch.Score += brew.Price * (1 + (depth - j) / (double) depth * 1);
+        }
+      }
+    }
+
+    branch.Evaluate(rollIdx);
+
+    firstMove.Outcomes.Add(branch.Score);
   }
 
   private static (MoveCast, double) FindMax(List<MoveCast> moves)
@@ -212,12 +210,20 @@ static class Program
       Output.WriteLine($"{move.Cast} {score:0.00}");
     }
   }
+
+  private static string ToShortNumber(int val)
+  {
+    if (val > 1000)
+      return (val / 1000d).ToString("0.#") + "k";
+    return val.ToString();
+  }
 }
 
-abstract class BoardMove
+abstract class BoardMove : IDisposable
 {
   public abstract void Simulate(Branch branch);
   public abstract string GetCommand();
+  public abstract void Dispose();
 }
 
 class MoveCast : BoardMove
@@ -226,7 +232,7 @@ class MoveCast : BoardMove
   public readonly Ingredient Required;
   public readonly Ingredient TotalChnge;
 
-  public readonly List<double> Outcomes = new List<double>();
+  public readonly List<double> Outcomes;
 
   public readonly BoardEntity Cast;
   public readonly int Count;
@@ -246,6 +252,7 @@ class MoveCast : BoardMove
 
     Size = TotalChnge.Total();
 
+    Outcomes = PoolList<List<double>>.Get();
   }
 
   public override void Simulate(Branch branch)
@@ -254,6 +261,11 @@ class MoveCast : BoardMove
   }
 
   public override string GetCommand() => $"CAST {Cast.Id} {Count} ";
+
+  public override void Dispose()
+  {
+    PoolList<List<double>>.Put(Outcomes);
+  }
 }
 
 
@@ -264,6 +276,10 @@ class MoveReset : BoardMove
   }
 
   public override string GetCommand() => "REST";
+
+  public override void Dispose()
+  {
+  }
 }
 
 class MoveLearn : BoardMove
@@ -285,4 +301,9 @@ class MoveLearn : BoardMove
   }
 
   public override string GetCommand() => "LEARN " + _learn.Id;
+
+  public override void Dispose()
+  {
+
+  }
 }
