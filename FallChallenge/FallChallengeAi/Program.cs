@@ -191,7 +191,7 @@ static class Program
   {
     foreach (var cast in gs.Casts)
     {
-      var max = cast.IsRepeatable ? 4 : 2;
+      var max = cast.IsRepeatable ? 3 : 2;
       for (var i = 1; i < max; i++)
       {
         yield return new MoveCast(cast, i);
