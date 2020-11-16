@@ -7,7 +7,7 @@ class Branch
   public GameState State;
   public Ingredient Inventory;
 
-  public void Evaluate()
+  public void Evaluate(int i)
   {
 
     if (Score < 1)
@@ -15,6 +15,8 @@ class Branch
       var bestScore = 0d;
       foreach (var brew in State.Brews)
       {
+        if (brew.DoneAtCicle == i)
+          continue;
         var score = ScoreBrew(brew) * brew.Price * 0.5;
         if (score > bestScore)
           bestScore = score;

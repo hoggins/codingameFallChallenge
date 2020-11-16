@@ -70,7 +70,7 @@ static class Program
 
   static BoardMove FindForward(GameState gs, Stopwatch sw)
   {
-    const int depth = 15;
+    const int depth = 30;
 
     if (gs.Casts.Count < 12)
       return new MoveLearn(gs);
@@ -100,16 +100,19 @@ static class Program
 
         foreach (var brew in srcBranch.State.Brews)
         {
+          if (brew.DoneAtCicle == i)
+            continue;
           var canBrew = srcBranch.Inventory.CanPay(brew.IngredientPay);
           if (canBrew)
           {
+            brew.DoneAtCicle = i;
             srcBranch.Inventory -= brew.IngredientPay;
-            srcBranch.Score += brew.Price * (1 + (depth - j)/(double)depth * 2);
+            srcBranch.Score += brew.Price * (1 + (depth - j)/(double)depth * 1);
           }
         }
       }
 
-      srcBranch.Evaluate();
+      srcBranch.Evaluate(i);
 
       firstMove.Outcomes.Add(srcBranch.Score);
 

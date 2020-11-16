@@ -31,6 +31,8 @@ class BoardEntity
 
   public int BrewIngredientCount;
 
+  public int DoneAtCicle = -1;
+
   public BoardEntity(string[] inputs)
   {
     Id = int.Parse(inputs[0]);
