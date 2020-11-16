@@ -127,6 +127,11 @@ static class Program
       var pickMove = PickMove(branch, moves);
       if (pickMove == null)
         break;
+      if (pickMove.UsedOnIteration == rollIdx)
+      {
+        j++;
+        pickMove.UsedOnIteration = -1;
+      }
       pickMove.Simulate(branch);
 
       foreach (var brew in branch.State.Brews)
@@ -138,7 +143,7 @@ static class Program
         {
           brew.DoneAtCicle = rollIdx;
           branch.Inventory -= brew.IngredientPay;
-          branch.Score += brew.Price * (1 + (depth - j) / (double) depth * 1);
+          branch.Score += brew.Price * (1 + (depth - j) / (double) depth * 2);
         }
       }
     }
@@ -232,6 +237,7 @@ class MoveCast : BoardMove
   public readonly Ingredient Required;
   public readonly Ingredient TotalChnge;
 
+  public int UsedOnIteration = -1;
   public readonly List<double> Outcomes;
 
   public readonly BoardEntity Cast;
@@ -257,6 +263,7 @@ class MoveCast : BoardMove
 
   public override void Simulate(Branch branch)
   {
+    UsedOnIteration = branch.Iteration;
     branch.Inventory += TotalChnge;
   }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 class Branch
 {
+  public int Iteration;
   public double Score;
   public GameState State;
   public Ingredient Inventory;
