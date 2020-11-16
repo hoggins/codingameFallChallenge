@@ -10,6 +10,10 @@ static class Program
 {
   public static Random Rnd = new Random(1);
 
+  public static string Comment = string.Empty;
+
+  public static void AddComment(object s) => Comment += " " + s;
+
   static void Main(string[] args)
   {
 #if !PUBLISHED
@@ -35,6 +39,7 @@ static class Program
 
     for (var tick = 0;; ++tick)
     {
+      Comment = string.Empty;
       var gs = new GameState();
 
       var actionCount = int.Parse(input.Line()); // the number of spells and recipes in play
@@ -60,7 +65,8 @@ static class Program
       {
         var sw = Stopwatch.StartNew();
         var cmd = FindForward(gs, sw);
-        Console.WriteLine(cmd.GetCommand() + " " + cmd.Comment + " "+sw.ElapsedMilliseconds);
+        AddComment(sw.ElapsedMilliseconds);
+        Console.WriteLine(cmd.GetCommand() + Comment);
       }
 
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
@@ -83,7 +89,7 @@ static class Program
 
     var moves = GenerateCastMoves(gs).ToList();
 
-    for (int i = 0; i < 100000; i++)
+    for (int i = 0; ; i++)
     {
       srcBranch.Inventory = gs.Myself.Inventory;
       srcBranch.Score = 0;
@@ -118,7 +124,7 @@ static class Program
 
       if (i % 100 == 0 && sw.ElapsedMilliseconds > 45)
       {
-        Output.WriteLine("s:" + i);
+        AddComment(ToShortNumber(i));
         break;
       }
     }
@@ -126,14 +132,22 @@ static class Program
     //PrintMoveScores(moves);
 
     var (move, avgScore) = FindMax(moves);
+    //AddComment(ToShortNumber(avgScore));
 
     if (move.Cast.IsLearn)
       return new MoveLearn(move.Cast);
 
     if (!move.Cast.IsCastable)
-      return new MoveReset().WithComment(avgScore.ToString("0.##"));
+      return new MoveReset();
 
-    return move.WithComment(avgScore.ToString("0.##"));
+    return move;
+  }
+
+  private static string ToShortNumber(int val)
+  {
+    if (val > 1000)
+      return (val / 1000d).ToString("0.#") + "k";
+    return val.ToString();
   }
 
   private static (MoveCast, double) FindMax(List<MoveCast> moves)
@@ -202,16 +216,8 @@ static class Program
 
 abstract class BoardMove
 {
-  public string Comment;
-
   public abstract void Simulate(Branch branch);
   public abstract string GetCommand();
-
-  public BoardMove WithComment(string comment)
-  {
-    Comment = comment;
-    return this;
-  }
 }
 
 class MoveCast : BoardMove
