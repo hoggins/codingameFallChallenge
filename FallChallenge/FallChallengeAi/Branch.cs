@@ -3,10 +3,11 @@ using System.Collections.Generic;
 
 class Branch
 {
-  public int Iteration;
+  public int RollOut;
   public double Score;
-  public GameState State;
+  //public GameState State;
   public Ingredient Inventory;
+  public List<Brew> Brews;
 
   public void Evaluate(int i)
   {
@@ -14,11 +15,11 @@ class Branch
     if (Score < 1)
     {
       var bestScore = 0d;
-      foreach (var brew in State.Brews)
+      foreach (var brew in Brews)
       {
-        if (brew.DoneAtCicle == i)
+        if (brew.LastRollOut == i)
           continue;
-        var score = ScoreBrew(brew) * brew.Price * 0.5;
+        var score = ScoreBrew(brew.Value) * brew.Value.Price * 0.5;
         if (score > bestScore)
           bestScore = score;
       }

@@ -15,6 +15,14 @@ struct Ingredient
     T3 = short.Parse(arr[idx + 3]);
   }
 
+  public Ingredient(short t0, short t1, short t2, short t3)
+  {
+    T0 = t0;
+    T1 = t1;
+    T2 = t2;
+    T3 = t3;
+  }
+
   public int this[int index]
   {
     get {

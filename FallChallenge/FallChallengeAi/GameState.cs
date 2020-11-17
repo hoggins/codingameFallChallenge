@@ -9,13 +9,21 @@ class GameState
   public Witch Myself => Witches[0];
   public IEnumerable<BoardEntity> Learns => Entities.Where(x => x.IsLearn);
   public readonly List<BoardEntity> Casts = new List<BoardEntity>();
+  public readonly List<BoardEntity> CastsAndLearn = new List<BoardEntity>();
   public List<BoardEntity> Brews;
 
   public void AddEntity(BoardEntity e)
   {
-    if (e.IsCast/* || e.IsLearn*/)
+    if (e.IsLearn)
+      CastsAndLearn.Add(e);
+    if (e.IsCast)
+    {
       Casts.Add(e);
+      CastsAndLearn.Add(e);
+    }
     else
+    {
       Entities.Add(e);
+    }
   }
 }

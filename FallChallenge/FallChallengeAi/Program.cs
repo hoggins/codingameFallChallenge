@@ -1,9 +1,14 @@
-﻿using System;
+﻿//#define FOR_DEBUG
+//#define PUBLISHED
+//#define PROFILER
+using System;
 using System.Linq;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
+
 
 static class Program
 {
@@ -15,18 +20,30 @@ static class Program
 
   static void Main(string[] args)
   {
+#if FOR_DEBUG
+    while (!Debugger.IsAttached)
+      Thread.Sleep(3);
+#endif
+
 #if !PUBLISHED
     try
     {
 #endif
+#if PROFILER
+      JetBrains.Profiler.Api.MeasureProfiler.StartCollectingData();
+#endif
       RunGame();
+#if PROFILER
+      JetBrains.Profiler.Api.MeasureProfiler.StopCollectingData();
+      JetBrains.Profiler.Api.MeasureProfiler.SaveData();
+#endif
 #if !PUBLISHED
     }
     catch (Exception e)
     {
       Console.WriteLine(e);
       Console.WriteLine("done");
-      Console.ReadKey();
+      //Console.ReadKey();
     }
 #endif
   }
@@ -75,13 +92,13 @@ static class Program
 
   static BoardMove FindForward(GameState gs, Stopwatch sw)
   {
-    if (gs.Casts.Count < 12)
+    if (gs.Casts.Count < 9)
       return new MoveLearn(gs);
 
     var branch = new Branch
     {
-      State = gs,
       Inventory = gs.Myself.Inventory,
+      Brews = gs.Brews.Select(x=>new Brew(x)).ToList()
     };
 
     var moves = GenerateCastMoves(gs).ToList();
@@ -96,12 +113,16 @@ static class Program
       }
     }
 
-    //PrintMoveScores(moves);
-
     var (move, avgScore) = FindMax(moves);
     //AddComment(ToShortNumber(avgScore));
 
+    // PrintBrews(branch.Brews);
+    // Output.WriteLine("");
+    // PrintMoveScores(moves);
+
     foreach (var toDispose in moves)
+      toDispose.Dispose();
+    foreach (var toDispose in branch.Brews)
       toDispose.Dispose();
 
     if (move.Cast.IsLearn)
@@ -116,34 +137,39 @@ static class Program
   private static void Rollout(GameState gs, Branch branch, int rollIdx, List<MoveCast> moves)
   {
     const int depth = 30;
+    branch.RollOut = rollIdx;
     branch.Inventory = gs.Myself.Inventory;
     branch.Score = 0;
 
     var firstMove = PickMove(branch, moves);
     firstMove.Simulate(branch);
+    var startAt = !firstMove.Cast.IsCastable || firstMove.IsLearn? 2 : 1;
 
-    for (int j = 0; j < depth; j++)
+    var maxDepth = depth;
+    for (int j = startAt; j < depth; j++)
     {
       var pickMove = PickMove(branch, moves);
       if (pickMove == null)
         break;
-      if (pickMove.UsedOnIteration == rollIdx)
+      if (pickMove.UseOnRollOut == rollIdx)
       {
+        maxDepth++;
         j++;
-        pickMove.UsedOnIteration = -1;
+        pickMove.UseOnRollOut = -1;
       }
       pickMove.Simulate(branch);
 
-      foreach (var brew in branch.State.Brews)
+      foreach (var brew in branch.Brews)
       {
-        if (brew.DoneAtCicle == rollIdx)
+        if (brew.LastRollOut == rollIdx)
           continue;
-        var canBrew = branch.Inventory.CanPay(brew.IngredientPay);
+        var canBrew = branch.Inventory.CanPay(brew.Value.IngredientPay);
         if (canBrew)
         {
-          brew.DoneAtCicle = rollIdx;
-          branch.Inventory -= brew.IngredientPay;
-          branch.Score += brew.Price * (1 + (depth - j) / (double) depth * 2);
+          brew.LastRollOut = rollIdx;
+          // brew.Iterations.Add(j);
+          branch.Inventory -= brew.Value.IngredientPay;
+          branch.Score += brew.Value.Price * (1 + (depth - j) / (double) depth * 2);
         }
       }
     }
@@ -177,11 +203,12 @@ static class Program
     for (var index = 0; index < castsCount; index++)
     {
       var cast = casts[index];
+      var required = cast.IsLearn && cast.LearnOnRollOut != branch.RollOut ? cast.RequiredLearn : cast.Required;
       if (space >= cast.Size
-          && branch.Inventory.T0 >= cast.Required.T0
-          && branch.Inventory.T1 >= cast.Required.T1
-          && branch.Inventory.T2 >= cast.Required.T2
-          && branch.Inventory.T3 >= cast.Required.T3)
+          && branch.Inventory.T0 >= required.T0
+          && branch.Inventory.T1 >= required.T1
+          && branch.Inventory.T2 >= required.T2
+          && branch.Inventory.T3 >= required.T3)
       {
         lastMove = cast;
         if (index >= rnd)
@@ -194,7 +221,7 @@ static class Program
 
   private static IEnumerable<MoveCast> GenerateCastMoves(GameState gs)
   {
-    foreach (var cast in gs.Casts)
+    foreach (var cast in gs.CastsAndLearn)
     {
       var max = cast.IsRepeatable ? 3 : 2;
       for (var i = 1; i < max; i++)
@@ -204,15 +231,30 @@ static class Program
     }
   }
 
+  private static void PrintBrews(List<Brew> brews)
+  {
+    foreach (var brew in brews)
+    {
+      if (brew.Iterations.Count == 0)
+        continue;
+      var cnt = brew.Iterations.GroupBy(x => x).Select(x => (k: x.Key, v: x.Count())).OrderBy(x=>x.k).ToList();
+      var cntStr = string.Join(", ", cnt.Take(10).Select(x => $"({x.k}:{x.v})"));
+      Output.WriteLine($"{brew.Value.Price}: {brew.Value.IngredientChange} in cnt:{brew.Iterations.Count} " +
+                       $"avg:{brew.Iterations.Average():0} " +
+                       $"{cntStr}");
+    }
+  }
+
   private static void PrintMoveScores(List<MoveCast> moves)
   {
-    foreach (var move in moves)
+    foreach (var move in moves.Where(x=>x.Outcomes.Count > 0).OrderByDescending(x=>x.Outcomes.Average()))
     {
       var subset = move.Outcomes;//.Where(x=>x > 0).ToArray();
       if (subset.Count == 0)
         continue;
       var score = subset.Average();
-      Output.WriteLine($"{move.Cast} {score:0.00}");
+      var learn = move.Cast.IsLearn ? "L " : String.Empty;
+      Output.WriteLine($"{move.Cast} {learn}{score:0.00}");
     }
   }
 
@@ -229,50 +271,6 @@ abstract class BoardMove : IDisposable
   public abstract void Simulate(Branch branch);
   public abstract string GetCommand();
   public abstract void Dispose();
-}
-
-class MoveCast : BoardMove
-{
-  public readonly int Size;
-  public readonly Ingredient Required;
-  public readonly Ingredient TotalChnge;
-
-  public int UsedOnIteration = -1;
-  public readonly List<double> Outcomes;
-
-  public readonly BoardEntity Cast;
-  public readonly int Count;
-
-  public MoveCast(BoardEntity cast, int count)
-  {
-    Cast = cast;
-    Count = count;
-
-    Required = Cast.IngredientPay * Count;
-    TotalChnge = Cast.IngredientChange * Count;
-    if (Cast.Type == EntityType.LEARN)
-    {
-      Required.T0 += (short)Cast.TomeIndex;
-      TotalChnge.T0 -= (short)Cast.TomeIndex;
-    }
-
-    Size = TotalChnge.Total();
-
-    Outcomes = PoolList<List<double>>.Get();
-  }
-
-  public override void Simulate(Branch branch)
-  {
-    UsedOnIteration = branch.Iteration;
-    branch.Inventory += TotalChnge;
-  }
-
-  public override string GetCommand() => $"CAST {Cast.Id} {Count} ";
-
-  public override void Dispose()
-  {
-    PoolList<List<double>>.Put(Outcomes);
-  }
 }
 
 

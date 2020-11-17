@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 enum EntityType
 {
@@ -6,6 +7,25 @@ enum EntityType
   CAST,
   OPPONENT_CAST,
   LEARN,
+}
+
+class Brew : IDisposable
+{
+  public BoardEntity Value;
+  public int LastRollOut = -1;
+  public List<int> Iterations;
+
+  public Brew(BoardEntity value)
+  {
+    Value = value;
+
+    Iterations = PoolList<List<int>>.Get();
+  }
+
+  public void Dispose()
+  {
+    PoolList<List<int>>.Put(Iterations);
+  }
 }
 
 class BoardEntity
@@ -22,6 +42,8 @@ class BoardEntity
   public bool IsCastable;
   // the index in the tome if this is a tome spell, equal to the read-ahead tax
   public int TomeIndex;
+  // the amount of taxed tier-0 ingredients you gain from learning this spell
+  public int TaxCount;
   // 1 if this is a repeatable player spell
   public bool IsRepeatable;
 
@@ -31,7 +53,6 @@ class BoardEntity
 
   public int BrewIngredientCount;
 
-  public int DoneAtCicle = -1;
 
   public BoardEntity(string[] inputs)
   {
@@ -40,7 +61,7 @@ class BoardEntity
     IngredientChange = new Ingredient(inputs, 2);
     Price = int.Parse(inputs[6]);
     TomeIndex = int.Parse(inputs[7]);
-    int taxCount = int.Parse(inputs[8]); //  the amount of taxed tier-0 ingredients you gain from learning this spell
+    TaxCount = int.Parse(inputs[8]);
     IsCastable = inputs[9] != "0";
     IsRepeatable = inputs[10] != "0";
 
