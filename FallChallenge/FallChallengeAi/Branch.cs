@@ -5,7 +5,6 @@ class Branch
 {
   public int RollOut;
   public double Score;
-  //public GameState State;
   public Ingredient Inventory;
   public List<Brew> Brews;
 

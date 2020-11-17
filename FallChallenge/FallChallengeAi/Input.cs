@@ -7,44 +7,53 @@ using System.Linq;
 
 class Output
 {
+  private static bool _sniff;
+  public static void Init(bool sniff)
+  {
+    _sniff = sniff;
+  }
+
   public static void WriteLine(string str)
   {
-#if !SNIFF
-    Console.Error.WriteLine(str);
-#endif
+    if (!_sniff)
+      Console.Error.WriteLine(str);
   }
 
   public static void Write(string s)
   {
-#if !SNIFF
-    Console.Error.Write(s);
-#endif
+    if (!_sniff)
+      Console.Error.Write(s);
   }
 }
 
 class Input
 {
+  private readonly bool _published;
+  private readonly bool _sniff;
   private readonly IEnumerator<string> Inputs;
 
-  public Input()
+  public Input(bool published, bool sniff)
   {
-#if !PUBLISHED
-    var inputs = File.ReadLines("Input.txt");
-    Inputs = inputs.Where(x=>!x.StartsWith("----- ")).GetEnumerator();
-#endif
+    _published = published;
+    _sniff = sniff;
+    if (!_published)
+    {
+      var inputs = File.ReadLines("Input.txt");
+      Inputs = inputs.Where(x => !x.StartsWith("----- ")).GetEnumerator();
+    }
   }
 
   public string Line()
   {
-#if !PUBLISHED
-    Inputs.MoveNext();
-    return Inputs.Current;
-#endif
+    if (!_published)
+    {
+      Inputs.MoveNext();
+      return Inputs.Current;
+    }
 
     var line = Console.ReadLine();
-#if SNIFF && PUBLISHED
-    Console.Error.WriteLine(line);
-#endif
+    if (_sniff && _published)
+      Console.Error.WriteLine(line);
     return line;
   }
 

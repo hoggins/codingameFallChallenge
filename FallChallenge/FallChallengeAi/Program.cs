@@ -1,6 +1,8 @@
 ﻿//#define FOR_DEBUG
-//#define PUBLISHED
+//#define SNIFF
+#define PUBLISHED
 //#define PROFILER
+
 using System;
 using System.Linq;
 using System.IO;
@@ -12,6 +14,21 @@ using System.Threading;
 
 static class Program
 {
+  private const bool Published =
+#if PUBLISHED
+    true;
+#else
+    false;
+#endif
+
+  private const bool Sniff =
+#if SNIFF
+    true;
+#else
+    false;
+#endif
+
+
   public static Random Rnd = new Random(1);
 
   public static string Comment = string.Empty;
@@ -25,32 +42,22 @@ static class Program
       Thread.Sleep(3);
 #endif
 
-#if !PUBLISHED
-    try
-    {
-#endif
 #if PROFILER
       JetBrains.Profiler.Api.MeasureProfiler.StartCollectingData();
 #endif
+
       RunGame();
+
 #if PROFILER
       JetBrains.Profiler.Api.MeasureProfiler.StopCollectingData();
       JetBrains.Profiler.Api.MeasureProfiler.SaveData();
-#endif
-#if !PUBLISHED
-    }
-    catch (Exception e)
-    {
-      Console.WriteLine(e);
-      Console.WriteLine("done");
-      //Console.ReadKey();
-    }
 #endif
   }
 
   private static void RunGame()
   {
-    var input = new Input();
+    Output.Init(Sniff);
+    var input = new Input(Published, Sniff);
 
 
     for (var tick = 0;; ++tick)
