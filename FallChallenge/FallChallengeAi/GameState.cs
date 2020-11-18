@@ -1,6 +1,26 @@
 using System.Collections.Generic;
 using System.Linq;
 
+class GlobalState
+{
+  public int[] LastScore = new []{0,0};
+  public int[] BrewsCompleted = new []{0,0};
+
+  public void Update(GameState gs)
+  {
+    UpdateWitch(0);
+    UpdateWitch(1);
+    void UpdateWitch(int idx)
+    {
+      if (LastScore[idx] != gs.Witches[idx].Score)
+      {
+        LastScore[idx] = gs.Witches[idx].Score;
+        BrewsCompleted[idx] += 1;
+      }
+    }
+  }
+}
+
 class GameState
 {
   public List<BoardEntity> Entities = new List<BoardEntity>();

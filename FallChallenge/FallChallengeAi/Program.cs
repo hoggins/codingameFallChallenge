@@ -58,7 +58,7 @@ static class Program
   {
     Output.Init(Sniff);
     var input = new Input(Published, Sniff);
-
+    var global = new GlobalState();
 
     for (var tick = 0;; ++tick)
     {
@@ -72,6 +72,8 @@ static class Program
       for (var i = 0; i < 2; i++)
         gs.Witches.Add(new Witch(input.LineArgs()));
 
+      global.Update(gs);
+
       gs.Brews = gs.Entities
         .Where(x => x.IsBrew)
         .OrderByDescending(x => x.Price)
@@ -79,15 +81,17 @@ static class Program
 
       // To debug: Console.Error.WriteLine("Debug messages...");
 
-      var producable = gs.Brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.IngredientPay));
+      var brews = FilterBrews(gs.Brews, global, gs);
+
+      var producable = brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.Value.IngredientPay));
       if (producable != null)
       {
-        Console.WriteLine("BREW " + producable.Id);
+        Console.WriteLine("BREW " + producable.Value.Id);
       }
       else
       {
         var sw = Stopwatch.StartNew();
-        var cmd = FindForward(gs, sw);
+        var cmd = FindForward(global, gs, brews, sw);
         AddComment(sw.ElapsedMilliseconds);
         Console.WriteLine(cmd.GetCommand() + Comment);
       }
@@ -97,7 +101,7 @@ static class Program
   }
 
 
-  static BoardMove FindForward(GameState gs, Stopwatch sw)
+  static BoardMove FindForward(GlobalState globalState, GameState gs, List<Brew> brews, Stopwatch sw)
   {
     if (gs.Casts.Count < 12)
       return new MoveLearn(gs);
@@ -105,7 +109,8 @@ static class Program
     var branch = new Branch
     {
       Inventory = gs.Myself.Inventory,
-      Brews = gs.Brews.Select(x=>new Brew(x)).ToList()
+      // Brews = gs.Brews.Select(x=>new Brew(x)).ToList()
+      Brews = brews,
     };
 
     var moves = GenerateCastMoves(gs).ToList();
@@ -176,7 +181,9 @@ static class Program
           brew.LastRollOut = rollIdx;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
-          branch.Score += brew.Value.Price * (1 + (depth - j) / (double) depth * 2);
+          var inventoryBonus = (branch.Inventory.T0 + branch.Inventory.T1 * 2 + branch.Inventory.T2 * 3 +
+                                branch.Inventory.T3 * 4);
+          branch.Score += brew.Value.Price * (1 + (depth - j) / (double) depth) /*+ inventoryBonus*/;
         }
       }
     }
@@ -235,6 +242,42 @@ static class Program
       {
         yield return new MoveCast(cast, i);
       }
+    }
+  }
+
+  private static List<Brew> FilterBrews(List<BoardEntity> brews, GlobalState globalState, GameState gs)
+  {
+    var currentBestBrew = 0;
+    foreach (var brew in brews)
+      if (brew.Price > currentBestBrew)
+        currentBestBrew = brew.Price;
+
+    var myCastLeft = 5 - globalState.BrewsCompleted[0];
+    var otherCastLeft = 5 - globalState.BrewsCompleted[1];
+    myCastLeft = Math.Min(myCastLeft, otherCastLeft);
+    var myMaxScore = PredictedScore(0, myCastLeft);
+    var otherMaxScore = PredictedScore(1, otherCastLeft);
+
+    var minForEach = Math.Min(15, (otherMaxScore - myMaxScore) / (double)myCastLeft * 1.7);
+
+    AddComment(minForEach.ToString("0"));
+
+    var res = new List<Brew>();
+    foreach (var entity in brews)
+    {
+      if (entity.Price < minForEach)
+        continue;
+      res.Add(new Brew(entity));
+    }
+
+    return res;
+
+    int PredictedScore(int wIdx, int castLeft)
+    {
+      var s = gs.Witches[wIdx].Score;
+      var c = castLeft;//6 - globalState.BrewsCompleted[wIdx] - 1;
+      const int maxBrewSize = 20;
+      return s + currentBestBrew + c * maxBrewSize;
     }
   }
 
