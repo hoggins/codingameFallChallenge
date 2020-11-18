@@ -99,7 +99,7 @@ static class Program
 
   static BoardMove FindForward(GameState gs, Stopwatch sw)
   {
-    if (gs.Casts.Count < 9)
+    if (gs.Casts.Count < 12)
       return new MoveLearn(gs);
 
     var branch = new Branch
@@ -143,7 +143,7 @@ static class Program
 
   private static void Rollout(GameState gs, Branch branch, int rollIdx, List<MoveCast> moves)
   {
-    const int depth = 30;
+    const int depth = 15;
     branch.RollOut = rollIdx;
     branch.Inventory = gs.Myself.Inventory;
     branch.Score = 0;
@@ -230,7 +230,7 @@ static class Program
   {
     foreach (var cast in gs.CastsAndLearn)
     {
-      var max = cast.IsRepeatable ? 3 : 2;
+      var max = cast.IsRepeatable ? 4 : 2;
       for (var i = 1; i < max; i++)
       {
         yield return new MoveCast(cast, i);
@@ -305,7 +305,16 @@ class MoveLearn : BoardMove
 
   public MoveLearn(GameState gs)
   {
-    _learn = gs.Learns.First(x => x.TomeIndex == 0);
+    var learns = gs.Learns.OrderBy(x => x.TomeIndex).ToList();
+    foreach (var entity in learns.Take(2))
+    {
+      if (entity.IngredientPay.Total() == 0)
+      {
+        _learn = entity;
+        return;
+      }
+    }
+    _learn = learns.First();
   }
 
   public override void Simulate(Branch branch)
