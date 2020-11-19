@@ -52,6 +52,7 @@ class BoardEntity
 
   public bool IsBrew => Type == EntityType.BREW;
   public bool IsCast => Type == EntityType.CAST;
+  public bool IsEnemyCast => Type == EntityType.OPPONENT_CAST;
   public bool IsLearn => Type == EntityType.LEARN;
 
   public int BrewIngredientCount;

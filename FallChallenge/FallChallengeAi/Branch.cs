@@ -1,30 +1,44 @@
 using System;
 using System.Collections.Generic;
 
-class Branch
+class Branch : IDisposable
 {
+  // in
+  public Ingredient InitialInventory;
+  public List<BoardEntity> Learns;
+  public List<BoardEntity> Casts;
+  public List<BoardEntity> CastsAndLearn;
+  // iteration
   public int RollOut;
-  public double Score;
   public Ingredient Inventory;
+  // in and out
   public List<Brew> Brews;
+  public List<MoveCast> Moves;
 
-  public void Evaluate(int i)
+  public Branch()
   {
+    Moves = PoolList<List<MoveCast>>.Get();
+  }
 
-    if (Score < 1)
+  public void Dispose()
+  {
+    PoolList<List<MoveCast>>.Put(Moves);
+  }
+
+  public double Evaluate(int rollOut)
+  {
+    var bestScore = 0d;
+    foreach (var brew in Brews)
     {
-      var bestScore = 0d;
-      foreach (var brew in Brews)
-      {
-        if (brew.LastRollOut == i)
-          continue;
-        var score = ScoreBrew(brew.Value) * brew.Value.Price * 0.5;
-        if (score > bestScore)
-          bestScore = score;
-      }
-
-      Score = bestScore;
+      if (brew.LastRollOut == rollOut)
+        continue;
+      var score = ScoreBrew(brew.Value) * brew.Value.Price * 0.5;
+      if (score > bestScore)
+        bestScore = score;
     }
+
+    return bestScore;
+
 
     double ScoreBrew(BoardEntity brew)
     {
@@ -44,4 +58,11 @@ class Branch
       return v1 / (double) v2;
     }
   }
+
+  public void Reset()
+  {
+    Inventory = InitialInventory;
+  }
+
+
 }

@@ -70,7 +70,7 @@ static class Program
         gs.AddEntity(new BoardEntity(input.LineArgs()));
 
       for (var i = 0; i < 2; i++)
-        gs.Witches.Add(new Witch(input.LineArgs()));
+        gs.Players[i].Witch = new Witch(input.LineArgs());
 
       gs.Brews = gs.Entities
         .Where(x => x.IsBrew)
@@ -80,43 +80,39 @@ static class Program
       // To debug: Console.Error.WriteLine("Debug messages...");
 
       var sw = Stopwatch.StartNew();
-      var cmd = FindForward(gs, sw);
+
+      var branch = new Branch
+      {
+        InitialInventory = gs.Players[0].Witch.Inventory,
+        Learns = gs.Learns,
+        Casts = gs.Players[0].Casts,
+        CastsAndLearn = gs.Players[0].CastsAndLearn,
+        Brews = gs.Brews.Select(x=>new Brew(x)).ToList(),
+      };
+
+      var cmd = FindForward(branch, sw);
+      branch.Dispose();
       AddComment(sw.ElapsedMilliseconds);
       Console.WriteLine(cmd.GetCommand() + Comment);
 
+      gs.Dispose();
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
     }
   }
 
 
-  static BoardMove FindForward(GameState gs, Stopwatch sw)
+  static BoardMove FindForward(Branch branch, Stopwatch sw)
   {
-    foreach (var entity in gs.Learns.OrderBy(x => x.TomeIndex).Take(2))
+    foreach (var entity in branch.Learns.OrderBy(x => x.TomeIndex).Take(2))
       if (entity.IngredientPay.Total() == 0)
         return new MoveLearn(entity);
 
-    if (gs.Casts.Count < 9)
-      return new MoveLearn(gs);
+    if (branch.Casts.Count < 9)
+      return new MoveLearn(branch);
 
-    var branch = new Branch
-    {
-      Inventory = gs.Myself.Inventory,
-      Brews = gs.Brews.Select(x=>new Brew(x)).ToList()
-    };
+    SimulateBranch(branch, sw, 46);
 
-    var moves = GenerateCastMoves(gs).ToList();
-    for (var rollIdx = 0; ; rollIdx++)
-    {
-      Rollout(gs, branch, rollIdx, moves);
-
-      if (rollIdx % 100 == 0 && sw.ElapsedMilliseconds > 45)
-      {
-        AddComment(ToShortNumber(rollIdx));
-        break;
-      }
-    }
-
-    var readyBrew = branch.Brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.Value.IngredientPay));
+    var readyBrew = branch.Brews.FirstOrDefault(x => branch.Inventory.CanPay(x.Value.IngredientPay));
     if (readyBrew != null)
     {
       var betterBrew = branch.Brews.FirstOrDefault(x => x.ShortestPath <= 3 && x.Value.Price > readyBrew.Value.Price);
@@ -132,7 +128,7 @@ static class Program
     // var toTake = branch.Brews.OrderBy(x => x.Value.Price * (1 + (20d - x.ShortestPath / 20d * 2))).First();
     // var move = toTake.FirstStep;
     // if (move == null)
-      var move  = FindMax(moves);
+      var move  = FindMax(branch.Moves);
 
     //AddComment(ToShortNumber(avgScore));
 
@@ -140,7 +136,7 @@ static class Program
     // Output.WriteLine("");
     // PrintMoveScores(moves);
 
-    foreach (var toDispose in moves)
+    foreach (var toDispose in branch.Moves)
       toDispose.Dispose();
     foreach (var toDispose in branch.Brews)
       toDispose.Dispose();
@@ -154,25 +150,40 @@ static class Program
     return move;
   }
 
-  private static void Rollout(GameState gs, Branch branch, int rollIdx, List<MoveCast> moves)
+  private static void SimulateBranch(Branch branch, Stopwatch sw, int timeLimit)
+  {
+    FillBranchMoves(branch);
+    for (var rollIdx = 0;; rollIdx++)
+    {
+      branch.RollOut = rollIdx;
+      Rollout(branch);
+      branch.Reset();
+
+      if (rollIdx % 100 == 0 && sw.ElapsedMilliseconds > timeLimit)
+      {
+        AddComment(ToShortNumber(rollIdx));
+        break;
+      }
+    }
+  }
+
+  private static void Rollout(Branch branch)
   {
     const int depth = 30;
-    branch.RollOut = rollIdx;
-    branch.Inventory = gs.Myself.Inventory;
-    branch.Score = 0;
 
-    var firstMove = PickMove(branch, moves);
+    var firstMove = PickMove(branch, branch.Moves);
     firstMove.Simulate(branch);
     var startAt = !firstMove.Cast.IsCastable || firstMove.IsLearn? 2 : 1;
 
     var maxDepth = depth;
     var brewsComplete = 0;
+    var score = 0d;
     for (int j = startAt; j < maxDepth; j++)
     {
-      var pickMove = PickMove(branch, moves);
+      var pickMove = PickMove(branch, branch.Moves);
       if (pickMove == null)
         break;
-      if (pickMove.UseOnRollOut == rollIdx)
+      if (pickMove.UseOnRollOut == branch.RollOut)
       {
         maxDepth++;
         j++;
@@ -182,16 +193,16 @@ static class Program
 
       foreach (var brew in branch.Brews)
       {
-        if (brew.LastRollOut == rollIdx)
+        if (brew.LastRollOut == branch.RollOut)
           continue;
         var canBrew = branch.Inventory.CanPay(brew.Value.IngredientPay);
         if (canBrew)
         {
           ++brewsComplete;
-          brew.LastRollOut = rollIdx;
+          brew.LastRollOut = branch.RollOut;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
-          branch.Score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
+          score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
 
           if (j < brew.ShortestPath)
           {
@@ -205,9 +216,10 @@ static class Program
         break;
     }
 
-    branch.Evaluate(rollIdx);
+    if (score < 1)
+      score = branch.Evaluate(branch.RollOut);
 
-    firstMove.Outcomes.Add(branch.Score);
+    firstMove.Outcomes.Add(score);
   }
 
   private static MoveCast FindMax(List<MoveCast> moves)
@@ -250,14 +262,14 @@ static class Program
     return lastMove;
   }
 
-  private static IEnumerable<MoveCast> GenerateCastMoves(GameState gs)
+  private static void FillBranchMoves(Branch branch)
   {
-    foreach (var cast in gs.CastsAndLearn)
+    foreach (var cast in branch.CastsAndLearn)
     {
       var max = cast.IsRepeatable ? 4 : 2;
       for (var i = 1; i < max; i++)
       {
-        yield return new MoveCast(cast, i);
+        branch.Moves.Add(new MoveCast(cast, i));
       }
     }
   }
@@ -328,7 +340,7 @@ class MoveLearn : BoardMove
     _learn = learn;
   }
 
-  public MoveLearn(GameState gs)
+  public MoveLearn(Branch gs)
   {
     _learn = gs.Learns.First(x => x.TomeIndex == 0);
   }

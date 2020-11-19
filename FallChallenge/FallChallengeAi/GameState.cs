@@ -1,25 +1,69 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
-class GameState
+class PlayerState : IDisposable
 {
-  public List<BoardEntity> Entities = new List<BoardEntity>();
-  public List<Witch> Witches = new List<Witch>();
+  public Witch Witch;
+  public readonly List<BoardEntity> Casts;
+  public readonly List<BoardEntity> CastsAndLearn;
 
-  public Witch Myself => Witches[0];
-  public IEnumerable<BoardEntity> Learns => Entities.Where(x => x.IsLearn);
-  public readonly List<BoardEntity> Casts = new List<BoardEntity>();
-  public readonly List<BoardEntity> CastsAndLearn = new List<BoardEntity>();
+  public PlayerState()
+  {
+    Casts = PoolList<List<BoardEntity>>.Get();
+    CastsAndLearn = PoolList<List<BoardEntity>>.Get();
+  }
+
+  public void Dispose()
+  {
+    PoolList<List<BoardEntity>>.Put(Casts);
+    PoolList<List<BoardEntity>>.Put(CastsAndLearn);
+  }
+}
+
+class GameState : IDisposable
+{
+  public readonly PlayerState[] Players = new PlayerState[2];
+
+  public List<BoardEntity> Entities = new List<BoardEntity>();
+
+  public readonly List<BoardEntity> Learns;
   public List<BoardEntity> Brews;
+
+  public PlayerState Myself => Players[0];
+
+  public GameState()
+  {
+    Players[0] = new PlayerState();
+    Players[1] = new PlayerState();
+    Learns = PoolList<List<BoardEntity>>.Get();
+  }
+
+  public void Dispose()
+  {
+    Players[0].Dispose();
+    Players[1].Dispose();
+    PoolList<List<BoardEntity>>.Put(Learns);
+  }
 
   public void AddEntity(BoardEntity e)
   {
     if (e.IsLearn)
-      CastsAndLearn.Add(e);
+    {
+      Learns.Add(e);
+      Players[0].CastsAndLearn.Add(e);
+      Players[1].CastsAndLearn.Add(e);
+    }
+
     if (e.IsCast)
     {
-      Casts.Add(e);
-      CastsAndLearn.Add(e);
+      Players[0].Casts.Add(e);
+      Players[0].CastsAndLearn.Add(e);
+    }
+    else if (e.IsEnemyCast)
+    {
+      Players[1].Casts.Add(e);
+      Players[1].CastsAndLearn.Add(e);
     }
     else
     {
