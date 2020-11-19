@@ -244,9 +244,7 @@ static class Program
           brew.LastRollOut = branch.RollOut;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
-          var inventoryBonus = (branch.Inventory.T0 + branch.Inventory.T1 * 2 + branch.Inventory.T2 * 3 +
-                                branch.Inventory.T3 * 4);
-          branch.Score += brew.Value.Price * (1 + (depth - j) / (double) depth) /*+ inventoryBonus*/;
+          // var inventoryBonus = (branch.Inventory.T0 + branch.Inventory.T1 * 2 + branch.Inventory.T2 * 3 + branch.Inventory.T3 * 4);
           score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
 
           if (j < brew.ShortestPath)
@@ -321,7 +319,7 @@ static class Program
     }
   }
 
-  private static List<Brew> FilterBrews(List<BoardEntity> brews, GlobalState globalState, GameState gs)
+  /*private static List<Brew> FilterBrews(List<BoardEntity> brews, GlobalState globalState, GameState gs)
   {
     var currentBestBrew = 0;
     foreach (var brew in brews)
@@ -355,7 +353,7 @@ static class Program
       const int maxBrewSize = 20;
       return s + currentBestBrew + c * maxBrewSize;
     }
-  }
+  }*/
 
   private static void PrintBrews(List<Brew> brews)
   {

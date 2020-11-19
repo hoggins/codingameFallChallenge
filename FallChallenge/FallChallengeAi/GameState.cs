@@ -13,16 +13,16 @@ class GlobalState
     UpdateWitch(1);
     void UpdateWitch(int idx)
     {
-      if (LastScore[idx] != gs.Witches[idx].Score)
+      var player = gs.Players[idx];
+      if (LastScore[idx] != player.Witch.Score)
       {
-        LastScore[idx] = gs.Witches[idx].Score;
+        LastScore[idx] = player.Witch.Score;
         BrewsCompleted[idx] += 1;
       }
     }
   }
 }
 
-class GameState
 class PlayerState : IDisposable
 {
   public Witch Witch;
