@@ -62,7 +62,7 @@ static class Program
   {
     Output.Init(Sniff);
     var input = new Input(Published, Sniff);
-
+    var global = new GlobalState();
 
     for (var tick = 0;; ++tick)
     {
@@ -75,6 +75,8 @@ static class Program
 
       for (var i = 0; i < 2; i++)
         gs.Players[i].Witch = new Witch(input.LineArgs());
+
+      global.Update(gs);
 
       gs.Brews = gs.Entities
         .Where(x => x.IsBrew)
@@ -242,6 +244,9 @@ static class Program
           brew.LastRollOut = branch.RollOut;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
+          var inventoryBonus = (branch.Inventory.T0 + branch.Inventory.T1 * 2 + branch.Inventory.T2 * 3 +
+                                branch.Inventory.T3 * 4);
+          branch.Score += brew.Value.Price * (1 + (depth - j) / (double) depth) /*+ inventoryBonus*/;
           score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
 
           if (j < brew.ShortestPath)
@@ -313,6 +318,42 @@ static class Program
       {
         branch.Moves.Add(new MoveCast(cast, i));
       }
+    }
+  }
+
+  private static List<Brew> FilterBrews(List<BoardEntity> brews, GlobalState globalState, GameState gs)
+  {
+    var currentBestBrew = 0;
+    foreach (var brew in brews)
+      if (brew.Price > currentBestBrew)
+        currentBestBrew = brew.Price;
+
+    var myCastLeft = 5 - globalState.BrewsCompleted[0];
+    var otherCastLeft = 5 - globalState.BrewsCompleted[1];
+    myCastLeft = Math.Min(myCastLeft, otherCastLeft);
+    var myMaxScore = PredictedScore(0, myCastLeft);
+    var otherMaxScore = PredictedScore(1, otherCastLeft);
+
+    var minForEach = Math.Min(15, (otherMaxScore - myMaxScore) / (double)myCastLeft * 1.7);
+
+    AddComment(minForEach.ToString("0"));
+
+    var res = new List<Brew>();
+    foreach (var entity in brews)
+    {
+      if (entity.Price < minForEach)
+        continue;
+      res.Add(new Brew(entity));
+    }
+
+    return res;
+
+    int PredictedScore(int wIdx, int castLeft)
+    {
+      var s = gs.Witches[wIdx].Score;
+      var c = castLeft;//6 - globalState.BrewsCompleted[wIdx] - 1;
+      const int maxBrewSize = 20;
+      return s + currentBestBrew + c * maxBrewSize;
     }
   }
 
