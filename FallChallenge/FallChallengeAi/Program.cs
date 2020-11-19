@@ -79,18 +79,10 @@ static class Program
 
       // To debug: Console.Error.WriteLine("Debug messages...");
 
-      var producable = gs.Brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.IngredientPay));
-      if (producable != null)
-      {
-        Console.WriteLine("BREW " + producable.Id);
-      }
-      else
-      {
-        var sw = Stopwatch.StartNew();
-        var cmd = FindForward(gs, sw);
-        AddComment(sw.ElapsedMilliseconds);
-        Console.WriteLine(cmd.GetCommand() + Comment);
-      }
+      var sw = Stopwatch.StartNew();
+      var cmd = FindForward(gs, sw);
+      AddComment(sw.ElapsedMilliseconds);
+      Console.WriteLine(cmd.GetCommand() + Comment);
 
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
     }
@@ -99,7 +91,11 @@ static class Program
 
   static BoardMove FindForward(GameState gs, Stopwatch sw)
   {
-    if (gs.Casts.Count < 12)
+    foreach (var entity in gs.Learns.OrderBy(x => x.TomeIndex).Take(2))
+      if (entity.IngredientPay.Total() == 0)
+        return new MoveLearn(entity);
+
+    if (gs.Casts.Count < 9)
       return new MoveLearn(gs);
 
     var branch = new Branch
@@ -120,7 +116,24 @@ static class Program
       }
     }
 
-    var (move, avgScore) = FindMax(moves);
+    var readyBrew = branch.Brews.FirstOrDefault(x => gs.Myself.Inventory.CanPay(x.Value.IngredientPay));
+    if (readyBrew != null)
+    {
+      var betterBrew = branch.Brews.FirstOrDefault(x => x.ShortestPath <= 3 && x.Value.Price > readyBrew.Value.Price);
+      if (betterBrew == null)
+        return new MoveBrew(readyBrew.Value);
+      else
+      {
+        Output.WriteLine($"skip brew {readyBrew.Value.IngredientChange} in feawer for {betterBrew.Value.IngredientChange} in {betterBrew.ShortestPath}");
+      }
+    }
+
+
+    // var toTake = branch.Brews.OrderBy(x => x.Value.Price * (1 + (20d - x.ShortestPath / 20d * 2))).First();
+    // var move = toTake.FirstStep;
+    // if (move == null)
+      var move  = FindMax(moves);
+
     //AddComment(ToShortNumber(avgScore));
 
     // PrintBrews(branch.Brews);
@@ -143,7 +156,7 @@ static class Program
 
   private static void Rollout(GameState gs, Branch branch, int rollIdx, List<MoveCast> moves)
   {
-    const int depth = 15;
+    const int depth = 30;
     branch.RollOut = rollIdx;
     branch.Inventory = gs.Myself.Inventory;
     branch.Score = 0;
@@ -153,7 +166,8 @@ static class Program
     var startAt = !firstMove.Cast.IsCastable || firstMove.IsLearn? 2 : 1;
 
     var maxDepth = depth;
-    for (int j = startAt; j < depth; j++)
+    var brewsComplete = 0;
+    for (int j = startAt; j < maxDepth; j++)
     {
       var pickMove = PickMove(branch, moves);
       if (pickMove == null)
@@ -173,12 +187,22 @@ static class Program
         var canBrew = branch.Inventory.CanPay(brew.Value.IngredientPay);
         if (canBrew)
         {
+          ++brewsComplete;
           brew.LastRollOut = rollIdx;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
-          branch.Score += brew.Value.Price * (1 + (depth - j) / (double) depth * 2);
+          branch.Score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
+
+          if (j < brew.ShortestPath)
+          {
+            brew.ShortestPath = j;
+            brew.FirstStep = firstMove;
+          }
+
         }
       }
+      if (brewsComplete == 2)
+        break;
     }
 
     branch.Evaluate(rollIdx);
@@ -186,7 +210,7 @@ static class Program
     firstMove.Outcomes.Add(branch.Score);
   }
 
-  private static (MoveCast, double) FindMax(List<MoveCast> moves)
+  private static MoveCast FindMax(List<MoveCast> moves)
   {
     var best = ((MoveCast, double)?) null;
     foreach (var move in moves)
@@ -198,7 +222,7 @@ static class Program
         best = (move, score);
     }
 
-    return best.Value;
+    return best.Value.Item1;
   }
 
   private static MoveCast PickMove(Branch branch, List<MoveCast> casts)
@@ -249,6 +273,7 @@ static class Program
       Output.WriteLine($"{brew.Value.Price}: {brew.Value.IngredientChange} in cnt:{brew.Iterations.Count} " +
                        $"avg:{brew.Iterations.Average():0} " +
                        $"{cntStr}");
+      Output.WriteLine($" -> {brew.FirstStep?.Cast?.IngredientChange}");
     }
   }
 
@@ -305,16 +330,7 @@ class MoveLearn : BoardMove
 
   public MoveLearn(GameState gs)
   {
-    var learns = gs.Learns.OrderBy(x => x.TomeIndex).ToList();
-    foreach (var entity in learns.Take(2))
-    {
-      if (entity.IngredientPay.Total() == 0)
-      {
-        _learn = entity;
-        return;
-      }
-    }
-    _learn = learns.First();
+    _learn = gs.Learns.First(x => x.TomeIndex == 0);
   }
 
   public override void Simulate(Branch branch)
@@ -322,6 +338,27 @@ class MoveLearn : BoardMove
   }
 
   public override string GetCommand() => "LEARN " + _learn.Id;
+
+  public override void Dispose()
+  {
+
+  }
+}
+
+class MoveBrew : BoardMove
+{
+  private readonly BoardEntity _brew;
+
+  public MoveBrew(BoardEntity brew)
+  {
+    _brew = brew;
+  }
+
+  public override void Simulate(Branch branch)
+  {
+  }
+
+  public override string GetCommand() => "BREW " + _brew.Id;
 
   public override void Dispose()
   {
