@@ -11,6 +11,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 
+class Insight
+{
+  public Dictionary<int, int> CanBeBrewed;
+}
 
 static class Program
 {
@@ -81,17 +85,10 @@ static class Program
 
       var sw = Stopwatch.StartNew();
 
-      var branch = new Branch
-      {
-        InitialInventory = gs.Players[0].Witch.Inventory,
-        Learns = gs.Learns,
-        Casts = gs.Players[0].Casts,
-        CastsAndLearn = gs.Players[0].CastsAndLearn,
-        Brews = gs.Brews.Select(x=>new Brew(x)).ToList(),
-      };
+      var brews = gs.Brews.Select(x => new Brew(x)).ToList();
+      FindInsight(gs, sw, brews);
 
-      var cmd = FindForward(branch, sw);
-      branch.Dispose();
+      var cmd = FindMove(gs, brews, sw);
       AddComment(sw.ElapsedMilliseconds);
       Console.WriteLine(cmd.GetCommand() + Comment);
 
@@ -100,8 +97,51 @@ static class Program
     }
   }
 
+  private static Insight FindInsight(GameState gs, Stopwatch sw, List<Brew> brews)
+  {
+    var branch = new Branch
+    {
+      InitialInventory = gs.Players[1].Witch.Inventory,
+      Learns = gs.Learns,
+      Casts = gs.Players[1].Casts,
+      CastsAndLearn = gs.Players[1].CastsAndLearn,
+      Brews = brews,
+    };
 
-  static BoardMove FindForward(Branch branch, Stopwatch sw)
+    SimulateBranch(branch, 6, sw, 7);
+
+    foreach (var brew in brews)
+    {
+      brew.EnemyShortestPath = brew.ShortestPath;
+      brew.ShortestPath = Int32.MaxValue;
+    }
+    var insight = new Insight
+    {
+      // CanBeBrewed = branch.Brews.ToDictionary(x=>x.Value.Id, x=>x.ShortestPath),
+    };
+
+    branch.Dispose();
+    return insight;
+  }
+
+  private static BoardMove FindMove(GameState gs, List<Brew> brews, Stopwatch sw)
+  {
+    var branch = new Branch
+    {
+      InitialInventory = gs.Players[0].Witch.Inventory,
+      Learns = gs.Learns,
+      Casts = gs.Players[0].Casts,
+      CastsAndLearn = gs.Players[0].CastsAndLearn,
+      Brews = brews,
+    };
+
+    var cmd = FindMove(branch, sw);
+    branch.Dispose();
+    return cmd;
+  }
+
+
+  static BoardMove FindMove(Branch branch, Stopwatch sw)
   {
     foreach (var entity in branch.Learns.OrderBy(x => x.TomeIndex).Take(2))
       if (entity.IngredientPay.Total() == 0)
@@ -110,7 +150,9 @@ static class Program
     if (branch.Casts.Count < 9)
       return new MoveLearn(branch);
 
-    SimulateBranch(branch, sw, 46);
+    var depth = Math.Min(30, branch.Brews.Min(x => x.EnemyShortestPath));
+
+    SimulateBranch(branch, depth, sw, 46);
 
     var readyBrew = branch.Brews.FirstOrDefault(x => branch.Inventory.CanPay(x.Value.IngredientPay));
     if (readyBrew != null)
@@ -150,13 +192,13 @@ static class Program
     return move;
   }
 
-  private static void SimulateBranch(Branch branch, Stopwatch sw, int timeLimit)
+  private static void SimulateBranch(Branch branch, int depth, Stopwatch sw, int timeLimit)
   {
     FillBranchMoves(branch);
     for (var rollIdx = 0;; rollIdx++)
     {
       branch.RollOut = rollIdx;
-      Rollout(branch);
+      Rollout(branch, depth);
       branch.Reset();
 
       if (rollIdx % 100 == 0 && sw.ElapsedMilliseconds > timeLimit)
@@ -167,10 +209,8 @@ static class Program
     }
   }
 
-  private static void Rollout(Branch branch)
+  private static void Rollout(Branch branch, int depth)
   {
-    const int depth = 30;
-
     var firstMove = PickMove(branch, branch.Moves);
     firstMove.Simulate(branch);
     var startAt = !firstMove.Cast.IsCastable || firstMove.IsLearn? 2 : 1;
@@ -215,6 +255,8 @@ static class Program
       if (brewsComplete == 2)
         break;
     }
+
+    branch.MaxBrewsCompleted = Math.Max(branch.MaxBrewsCompleted, brewsComplete);
 
     if (score < 1)
       score = branch.Evaluate(branch.RollOut);

@@ -14,6 +14,7 @@ class Branch : IDisposable
   // in and out
   public List<Brew> Brews;
   public List<MoveCast> Moves;
+  public int MaxBrewsCompleted;
 
   public Branch()
   {

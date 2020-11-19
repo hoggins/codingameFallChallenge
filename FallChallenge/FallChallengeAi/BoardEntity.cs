@@ -15,6 +15,7 @@ class Brew : IDisposable
   public int LastRollOut = -1;
   public List<int> Iterations;
 
+  public int EnemyShortestPath = int.MaxValue;
   public int ShortestPath = int.MaxValue;
   public MoveCast FirstStep;
 
