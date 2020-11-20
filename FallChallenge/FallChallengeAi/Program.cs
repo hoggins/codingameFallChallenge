@@ -104,7 +104,7 @@ static class Program
   static BoardMove FindForward(Branch branch, Stopwatch sw)
   {
     foreach (var entity in branch.Learns.OrderBy(x => x.TomeIndex).Take(2))
-      if (entity.IngredientPay.Total() == 0)
+      if (entity.IngredientPay.Total() == 0 && entity.TomeIndex <= branch.InitialInventory.T0)
         return new MoveLearn(entity);
 
     if (branch.Casts.Count < 9)
