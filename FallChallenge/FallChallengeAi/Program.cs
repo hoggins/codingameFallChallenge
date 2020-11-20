@@ -169,7 +169,7 @@ static class Program
 
   private static void Rollout(Branch branch)
   {
-    const int depth = 30;
+    const int depth = 10;
 
     var firstMove = PickMove(branch, branch.Moves);
     firstMove.Simulate(branch);
@@ -216,8 +216,8 @@ static class Program
         break;
     }
 
-    if (score < 1)
-      score = branch.Evaluate(branch.RollOut);
+    // if (score < 1)
+      // score = branch.Evaluate(branch.RollOut);
 
     firstMove.Outcomes.Add(score);
   }
