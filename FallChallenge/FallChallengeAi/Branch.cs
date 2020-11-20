@@ -15,6 +15,7 @@ class Branch : IDisposable
   public List<Brew> Brews;
   public List<MoveCast> Moves;
   public int MaxBrewsCompleted;
+  public int MaxBrewsCompletedAt;
 
   public Branch()
   {
@@ -26,14 +27,16 @@ class Branch : IDisposable
     PoolList<List<MoveCast>>.Put(Moves);
   }
 
-  public double Evaluate(int rollOut)
+  public double Evaluate(int rollOut, int maxDepth)
   {
     var bestScore = 0d;
     foreach (var brew in Brews)
     {
+      if (brew.EnemyShortestPath < maxDepth)
+        continue;
       if (brew.LastRollOut == rollOut)
         continue;
-      var score = ScoreBrew(brew.Value) * brew.Value.Price * 0.5;
+      var score = ScoreBrew(brew.Value) * brew.Value.Price;
       if (score > bestScore)
         bestScore = score;
     }

@@ -5,7 +5,7 @@ using System.Linq;
 class GlobalState
 {
   public int[] LastScore = new []{0,0};
-  public int[] BrewsCompleted = new []{0,0};
+  public int[] BrewsLeft = new []{6,6};
 
   public void Update(GameState gs)
   {
@@ -17,7 +17,7 @@ class GlobalState
       if (LastScore[idx] != player.Witch.Score)
       {
         LastScore[idx] = player.Witch.Score;
-        BrewsCompleted[idx] += 1;
+        BrewsLeft[idx] -= 1;
       }
     }
   }
