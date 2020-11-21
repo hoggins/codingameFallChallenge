@@ -209,10 +209,12 @@ static class Program
   private static void SimulateBranch(Branch branch, int depth, Stopwatch sw, int timeLimit)
   {
     FillBranchMoves(branch);
+    var rollOutShift = 0;
     for (var rollIdx = 0;; rollIdx++)
     {
-      branch.RollOut = rollIdx;
-      Rollout(branch, depth);
+      branch.CastRollOut = rollIdx + rollOutShift;
+      branch.MainRollOut = rollIdx;
+      Rollout(branch, depth, ref rollOutShift);
       branch.Reset();
 
       if (rollIdx % 100 == 0 && sw.ElapsedMilliseconds > timeLimit)
@@ -223,40 +225,46 @@ static class Program
     }
   }
 
-  private static void Rollout(Branch branch, int depth)
+  private static void Rollout(Branch branch, int depth, ref int rollOutShift)
   {
-    var firstMove = PickMove(branch, branch.Moves);
-    firstMove.Simulate(branch);
-    var startAt = !firstMove.Cast.IsCastable || firstMove.IsLearn? 2 : 1;
+    MoveCast firstMove = null;
+    // var firstMove = PickMove(branch, branch.Moves);
+    // firstMove.Simulate(branch);
+    // var startAt = !firstMove.Cast.IsCastable || firstMove.IsLearn? 2 : 1;
 
     var maxDepth = depth;
     var brewsComplete = 0;
     var score = 0d;
     int j;
     for (j = startAt; j < maxDepth; j++)
+    for (j = 0; j < maxDepth; j++)
     {
       var pickMove = PickMove(branch, branch.Moves);
       if (pickMove == null)
         break;
-      if (pickMove.UseOnRollOut == branch.RollOut)
+      if (firstMove == null)
+        firstMove = pickMove;
+      if (pickMove.UseOnRollOut == branch.CastRollOut)
       {
         maxDepth++;
         j++;
-        pickMove.UseOnRollOut = -1;
+        rollOutShift++;
+        branch.CastRollOut++;
       }
       pickMove.Simulate(branch);
 
       foreach (var brew in branch.Brews)
       {
-        if (brew.LastRollOut == branch.RollOut)
+        if (brew.LastRollOut == branch.MainRollOut)
           continue;
+        // todo: don't chase for enemy brews???
         if (brew.EnemyShortestPath < j)
           continue;
         var canBrew = branch.Inventory.CanPay(brew.Value.IngredientPay);
         if (canBrew)
         {
           ++brewsComplete;
-          brew.LastRollOut = branch.RollOut;
+          brew.LastRollOut = branch.MainRollOut;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
           score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
@@ -311,7 +319,7 @@ static class Program
     for (var index = 0; index < castsCount; index++)
     {
       var cast = casts[index];
-      var required = cast.IsLearn && cast.LearnOnRollOut != branch.RollOut ? cast.RequiredLearn : cast.Required;
+      var required = cast.IsLearn && cast.LearnOnRollOut != branch.MainRollOut ? cast.RequiredLearn : cast.Required;
       if (space >= cast.Size
           && branch.Inventory.T0 >= required.T0
           && branch.Inventory.T1 >= required.T1

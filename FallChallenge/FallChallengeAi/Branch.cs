@@ -9,7 +9,8 @@ class Branch : IDisposable
   public List<BoardEntity> Casts;
   public List<BoardEntity> CastsAndLearn;
   // iteration
-  public int RollOut;
+  public int MainRollOut;
+  public int CastRollOut;
   public Ingredient Inventory;
   // in and out
   public List<Brew> Brews;

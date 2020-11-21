@@ -38,13 +38,24 @@ class MoveCast : BoardMove
 
   public override void Simulate(Branch branch)
   {
-    UseOnRollOut = branch.RollOut;
+    UseOnRollOut = branch.CastRollOut;
 
     branch.Inventory += LearnOnRollOut != branch.RollOut
       ? TotalChangeLearn
       : TotalChange;
+    Ingredient change;
+    if (LearnOnRollOut != branch.MainRollOut)
+    {
+      change = TotalChangeLearn;
+    }
+    else
+    {
+      change = TotalChange;
+    }
+    branch.Inventory += change;
 
     LearnOnRollOut = branch.RollOut;
+    LearnOnRollOut = branch.MainRollOut;
   }
 
   public override string GetCommand() => $"CAST {Cast.Id} {Count} ";
