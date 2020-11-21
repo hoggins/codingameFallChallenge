@@ -1,4 +1,4 @@
-﻿//#define FOR_DEBUG
+﻿#define FOR_DEBUG
 //#define SNIFF
 #define PUBLISHED
 //#define PROFILER
@@ -79,24 +79,53 @@ static class Program
 
       // To debug: Console.Error.WriteLine("Debug messages...");
 
-      var sw = Stopwatch.StartNew();
-
-      var branch = new Branch
-      {
-        InitialInventory = gs.Players[0].Witch.Inventory,
-        Learns = gs.Learns,
-        Casts = gs.Players[0].Casts,
-        CastsAndLearn = gs.Players[0].CastsAndLearn,
-        Brews = gs.Brews.Select(x=>new Brew(x)).ToList(),
-      };
-
-      var cmd = Mc.FindForward(branch, sw);
-      branch.Dispose();
-      AddComment(sw.ElapsedMilliseconds);
-      Console.WriteLine(cmd.GetCommand() + Comment);
+      //RunMc(gs);
+      RunMcts(gs);
 
       gs.Dispose();
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
     }
+  }
+
+  private static void RunMcts(GameState gs)
+  {
+    var sw = Stopwatch.StartNew();
+
+    using (var branch = new Branch
+    {
+      InitialInventory = gs.Players[0].Witch.Inventory,
+      Learns = gs.Learns,
+      Casts = gs.Players[0].Casts,
+      CastsAndLearn = gs.Players[0].CastsAndLearn,
+      Brews = gs.Brews.Select(x => new Brew(x)).ToList(),
+    })
+    {
+      if (Mc.LearnInitial(branch, out var move))
+        Console.WriteLine(move.GetCommand());
+    }
+
+    var command = Mcts.ProduceCommand(gs);
+
+    AddComment(sw.ElapsedMilliseconds);
+    Console.WriteLine(command + Comment);
+  }
+
+  private static void RunMc(GameState gs)
+  {
+    var sw = Stopwatch.StartNew();
+
+    var branch = new Branch
+    {
+      InitialInventory = gs.Players[0].Witch.Inventory,
+      Learns = gs.Learns,
+      Casts = gs.Players[0].Casts,
+      CastsAndLearn = gs.Players[0].CastsAndLearn,
+      Brews = gs.Brews.Select(x => new Brew(x)).ToList(),
+    };
+
+    var cmd = Mc.FindForward(branch, sw);
+    branch.Dispose();
+    AddComment(sw.ElapsedMilliseconds);
+    Console.WriteLine(cmd.GetCommand() + Comment);
   }
 }

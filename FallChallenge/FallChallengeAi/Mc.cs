@@ -7,12 +7,8 @@ static class Mc
 {
   public static BoardMove FindForward(Branch branch, Stopwatch sw)
   {
-    foreach (var entity in branch.Learns.OrderBy(x => x.TomeIndex).Take(2))
-      if (entity.IngredientPay.Total() == 0 && entity.TomeIndex <= branch.InitialInventory.T0)
-        return new MoveLearn(entity);
-
-    if (branch.Casts.Count < 9)
-      return new MoveLearn(branch);
+    if (LearnInitial(branch, out var boardMove))
+      return boardMove;
 
     SimulateBranch(branch, sw, 46);
 
@@ -52,6 +48,25 @@ static class Mc
       return new MoveReset();
 
     return move;
+  }
+
+  public static bool LearnInitial(Branch branch, out BoardMove boardMove)
+  {
+    boardMove = null;
+    foreach (var entity in branch.Learns.OrderBy(x => x.TomeIndex).Take(2))
+      if (entity.IngredientPay.Total() == 0 && entity.TomeIndex <= branch.InitialInventory.T0)
+      {
+        boardMove = new MoveLearn(entity);
+        return true;
+      }
+
+    if (branch.Casts.Count < 9)
+    {
+      boardMove = new MoveLearn(branch);
+      return true;
+    }
+
+    return false;
   }
 
   private static void SimulateBranch(Branch branch, Stopwatch sw, int timeLimit)
