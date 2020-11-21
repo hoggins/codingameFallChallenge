@@ -1,4 +1,4 @@
-﻿#define FOR_DEBUG
+﻿//#define FOR_DEBUG
 //#define SNIFF
 #define PUBLISHED
 //#define PROFILER
@@ -101,7 +101,10 @@ static class Program
     })
     {
       if (Mc.LearnInitial(branch, out var move))
+      {
         Console.WriteLine(move.GetCommand());
+        return;
+      }
     }
 
     var command = Mcts.ProduceCommand(gs);
