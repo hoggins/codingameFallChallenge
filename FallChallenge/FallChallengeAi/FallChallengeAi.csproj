@@ -55,6 +55,7 @@
         <Compile Include="Ingredient.cs" />
         <Compile Include="Input.cs" />
         <Compile Include="Mc.cs" />
+        <Compile Include="Mcts.cs" />
         <Compile Include="MoveCast.cs" />
         <Compile Include="PoolList.cs" />
         <Compile Include="Program.cs" />
