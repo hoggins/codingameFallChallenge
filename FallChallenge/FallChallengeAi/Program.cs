@@ -90,7 +90,7 @@ static class Program
       var sw = Stopwatch.StartNew();
 
       var brews = gs.Brews.Select(x => new Brew(x)).ToList();
-      var insight = FindInsight(gs, sw, brews);
+      var insight = FindInsight(gs, global, sw, brews);
 
       var cmd = FindMove(gs, global, brews, insight, sw);
       AddComment(sw.ElapsedMilliseconds);
@@ -101,18 +101,19 @@ static class Program
     }
   }
 
-  private static Insight FindInsight(GameState gs, Stopwatch sw, List<Brew> brews)
+  private static Insight FindInsight(GameState gs, GlobalState global, Stopwatch sw, List<Brew> brews)
   {
     var branch = new Branch
     {
       InitialInventory = gs.Players[1].Witch.Inventory,
       Learns = gs.Learns,
       Casts = gs.Players[1].Casts,
-      CastsAndLearn = gs.Players[1].CastsAndLearn,
+      CastsAndLearn = gs.Players[1].Casts,
       Brews = brews,
+      BrewsLeftCount = global.BrewsLeft[1],
     };
 
-    SimulateBranch(branch, 6, sw, 7);
+    SimulateBranch(branch, 5, sw, 7);
 
     foreach (var brew in brews)
     {
@@ -140,10 +141,11 @@ static class Program
       Casts = gs.Players[0].Casts,
       CastsAndLearn = gs.Players[0].CastsAndLearn,
       Brews = brews,
+      BrewsLeftCount = global.BrewsLeft[0]
     };
 
     // var depth = Math.Min(30, branch.Brews.Min(x => x.EnemyShortestPath));
-    var depth = global.BrewsLeft[1] - insight.MaxBrewsCompleted <= 0 ? insight.MaxBrewsCompletedAt : 10;
+    var depth = global.BrewsLeft[1] - insight.MaxBrewsCompleted <= 0 ? Math.Max(2, insight.MaxBrewsCompletedAt) : 7;
     // var depth = 7;
     Output.WriteLine("dep " + depth);
 
@@ -235,8 +237,8 @@ static class Program
     var maxDepth = depth;
     var brewsComplete = 0;
     var score = 0d;
+    var flow = 0;
     int j;
-    for (j = startAt; j < maxDepth; j++)
     for (j = 0; j < maxDepth; j++)
     {
       var pickMove = PickMove(branch, branch.Moves);
@@ -246,7 +248,7 @@ static class Program
         firstMove = pickMove;
       if (pickMove.UseOnRollOut == branch.CastRollOut)
       {
-        maxDepth++;
+        //maxDepth++;
         j++;
         rollOutShift++;
         branch.CastRollOut++;
@@ -267,7 +269,7 @@ static class Program
           brew.LastRollOut = branch.MainRollOut;
           // brew.Iterations.Add(j);
           branch.Inventory -= brew.Value.IngredientPay;
-          score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth * 2);
+          score += brew.Value.Price * (1 + (maxDepth - j) / (double) maxDepth) * 2;
           // var inventoryBonus = (branch.Inventory.T0 + branch.Inventory.T1 * 2 + branch.Inventory.T2 * 3 + branch.Inventory.T3 * 4);
           // score += inventoryBonus * 0.3;
 
@@ -279,10 +281,15 @@ static class Program
 
         }
       }
-      if (brewsComplete == 2)
+      if (brewsComplete == branch.BrewsLeftCount)
         break;
     }
 
+    score += branch.Flow * 0.1;
+
+
+    if (branch.MaxScore < score)
+      branch.MaxScore = score;
     if (branch.MaxBrewsCompleted < brewsComplete)
     {
       branch.MaxBrewsCompleted = brewsComplete;

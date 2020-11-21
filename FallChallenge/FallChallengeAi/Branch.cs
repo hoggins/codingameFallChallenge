@@ -8,13 +8,16 @@ class Branch : IDisposable
   public List<BoardEntity> Learns;
   public List<BoardEntity> Casts;
   public List<BoardEntity> CastsAndLearn;
+  public int BrewsLeftCount;
   // iteration
   public int MainRollOut;
   public int CastRollOut;
   public Ingredient Inventory;
+  public int Flow;
   // in and out
   public List<Brew> Brews;
   public List<MoveCast> Moves;
+  public double MaxScore;
   public int MaxBrewsCompleted;
   public int MaxBrewsCompletedAt;
 
@@ -67,6 +70,7 @@ class Branch : IDisposable
   public void Reset()
   {
     Inventory = InitialInventory;
+    Flow = 0;
   }
 
 
