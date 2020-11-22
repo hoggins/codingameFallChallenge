@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 
@@ -7,6 +8,7 @@ class MctsNode
 {
   public MctsNode Parent;
   public int Depth;
+  public double Score;
   public Ingredient Inventory;
   public long UsedCasts;
   public long LearnedCasts;
@@ -19,7 +21,7 @@ class MctsNode
 
   public readonly List<MctsNode> Children = new List<MctsNode>(8);
 
-  public double Ucb => (Value / Number) + 2*Math.Sqrt(Math.Log(Parent.Number)/Number);
+  public double Ucb => (Value / Number) + 4*Math.Sqrt(Math.Log(Parent.Number)/Number);
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public bool IsCastable(int idx) => (UsedCasts & (1 << idx)) == 0;
@@ -28,11 +30,12 @@ class MctsNode
   public bool IsBrewCompleted(int idx) => (CompleteBrews & (1 << idx)) != 0;
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public bool IsLearned(int idx) => (LearnedCasts & (1 << idx)) == 0;
+  public bool IsLearned(int idx) => (LearnedCasts & (1 << idx)) != 0;
 }
 
 class MctsBranch
 {
+  public int StartTick;
   public List<MctsCast> Casts;
   public List<BoardEntity> Brews;
 }
@@ -45,7 +48,7 @@ static class Mcts
     var canRest = false;
     foreach (var cast in branch.Casts)
     {
-      if (!node.IsCastable(cast.EntityIdx))
+      if (!cast.IsLearn && !node.IsCastable(cast.EntityIdx))
       {
         canRest = true;
         continue;
@@ -55,13 +58,15 @@ static class Mcts
       if (node.Inventory.Total() + cast.Size > 10
         || !node.Inventory.CanPay(shouldLearn ? cast.RequiredLearn : cast.Required))
         continue;
+      // todo: get rid of duplicates produced by multiple applications of not learned casts
       var newNode = new MctsNode
       {
         Parent = node,
         Depth = node.Depth + 1,
+        Score = node.Score,
         Inventory = node.Inventory + (shouldLearn ? cast.TotalChangeLearn : cast.TotalChange),
-        UsedCasts = node.UsedCasts & (1 << cast.EntityIdx),
-        LearnedCasts = node.LearnedCasts & (1 << cast.EntityIdx),
+        UsedCasts = shouldLearn ? node.UsedCasts : node.UsedCasts & (1 << cast.EntityIdx),
+        LearnedCasts = !shouldLearn ? node.LearnedCasts : node.LearnedCasts & (1 << cast.EntityIdx),
         CompleteBrews = node.CompleteBrews,
         ActionIdx = cast.BranchRefIdx,
       };
@@ -69,12 +74,40 @@ static class Mcts
       node.Children.Add(newNode);
     }
 
+    for (var brewIdx = 0; brewIdx < branch.Brews.Count; brewIdx++)
+    {
+      if (node.IsBrewCompleted(brewIdx))
+        continue;
+      var brew = branch.Brews[brewIdx];
+      var canBrew = node.Inventory.CanPay(brew.IngredientPay);
+      if (canBrew)
+      {
+        var newDepth = node.Depth + 1;
+        var newScore = brew.Price * (1 + (100 - newDepth) / 100d);
+        var newNode = new MctsNode
+        {
+          Parent = node,
+          Depth = node.Depth + 1,
+          Score = node.Score + newScore,
+          Inventory = node.Inventory - brew.IngredientPay,
+          UsedCasts = node.UsedCasts,
+          LearnedCasts = node.LearnedCasts,
+          CompleteBrews = node.CompleteBrews & (1<<brewIdx),
+          ActionIdx = -brewIdx-1,
+        };
+        // todo de duplicate
+        node.Children.Add(newNode);
+      }
+    }
+
+
     if (canRest)
     {
       var newNode = new MctsNode
       {
         Parent = node,
         Depth = node.Depth + 1,
+        Score = node.Score,
         Inventory = node.Inventory,
         UsedCasts = 0,
         LearnedCasts = node.LearnedCasts,
@@ -85,34 +118,48 @@ static class Mcts
     }
   }
 
-  public static string ProduceCommand(GameState gs)
+  public static string ProduceCommand(GameState gs, Stopwatch sw)
   {
     var rootNode = new MctsNode
     {
+      Score = gs.Players[0].Witch.Score,
       Inventory = gs.Players[0].Witch.Inventory,
     };
     var branch = new MctsBranch
     {
+      StartTick = gs.Tick,
       Brews = gs.Brews,
       Casts = GenerateCasts(gs.Players[0].CastsAndLearn, rootNode)
     };
-    var bestChild = MonteCarloTreeSearch(rootNode, branch);
+    var bestChild = MonteCarloTreeSearch(rootNode, branch, sw);
     if (!bestChild.ActionIdx.HasValue)
       return "REST";
+    if (bestChild.ActionIdx < 0)
+    {
+      var brew = branch.Brews[-(bestChild.ActionIdx.Value + 1)];
+      return "BREW " + brew.Id;
+    }
     var cast = branch.Casts[bestChild.ActionIdx.Value];
     if (cast.IsLearn)
       return "LEARN " + cast.Cast.Id;
+    if (!cast.Cast.IsCastable)
+      return "REST";
     return "CAST " + cast.Cast.Id + " " + cast.Count;
   }
 
-  public static MctsNode MonteCarloTreeSearch(MctsNode rootNode, MctsBranch branch)
+  public static MctsNode MonteCarloTreeSearch(MctsNode rootNode, MctsBranch branch, Stopwatch sw)
   {
-    for (int i = 0; i < 20000; i++)
+    for (var i = 0;; i++)
     {
       var leaf = Traverse(rootNode);
       Expand(leaf, branch);
       var simResult = Rollout(leaf, branch);
       Backpropagate(leaf, simResult);
+      if (sw.ElapsedMilliseconds > 45)
+      {
+        Program.AddComment("i:"+i.ToShortNumber());
+        break;
+      }
     }
 
     return rootNode.Children.FindMax(x => x.Number);
@@ -138,7 +185,7 @@ static class Mcts
         res.Add(new MctsCast(entityIdx, res.Count, entity, count));
       }
 
-      if (!entity.IsCastable)
+      if (!entity.IsCastable && !entity.IsLearn)
         node.UsedCasts |= 1 << entityIdx;
     }
 
@@ -169,7 +216,7 @@ static class Mcts
 
     var maxDepth = depth;
     var brewsComplete = 0;
-    var score = 0d;
+    var score = (double)node.Score;
     for (var j = 1; j < maxDepth; j++)
     {
       var pickMove = PickMove(node, branch.Casts);

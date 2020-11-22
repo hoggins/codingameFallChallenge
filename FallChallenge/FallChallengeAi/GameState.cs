@@ -24,9 +24,8 @@ class PlayerState : IDisposable
 class GameState : IDisposable
 {
   public readonly PlayerState[] Players = new PlayerState[2];
-
+  public int Tick;
   public List<BoardEntity> Entities = new List<BoardEntity>();
-
   public readonly List<BoardEntity> Learns;
   public List<BoardEntity> Brews;
 

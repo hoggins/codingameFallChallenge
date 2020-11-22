@@ -64,6 +64,7 @@ static class Program
     {
       Comment = string.Empty;
       var gs = new GameState();
+      gs.Tick = tick;
 
       var actionCount = int.Parse(input.Line()); // the number of spells and recipes in play
       for (int i = 0; i < actionCount; i++)
@@ -91,7 +92,7 @@ static class Program
   {
     var sw = Stopwatch.StartNew();
 
-    using (var branch = new Branch
+    /*using (var branch = new Branch
     {
       InitialInventory = gs.Players[0].Witch.Inventory,
       Learns = gs.Learns,
@@ -107,7 +108,14 @@ static class Program
       }
     }
 
-    var command = Mcts.ProduceCommand(gs);
+    var readyBrew = gs.Brews.FirstOrDefault(x => gs.Myself.Witch.Inventory.CanPay(x.IngredientPay));
+    if (readyBrew != null)
+    {
+      Console.WriteLine("BREW " + readyBrew.Id);
+      return;
+    }*/
+
+    var command = Mcts.ProduceCommand(gs, sw);
 
     AddComment(sw.ElapsedMilliseconds);
     Console.WriteLine(command + Comment);
