@@ -7,17 +7,16 @@ using System.Linq;
 
 static class Mcts
 {
-  public static MctsNode RootNode;
   private const int MaxDepth = 15;
   private const int RollOutMaxDepth = 7;
-  private const int SearchTime = 42;
+  private const int SearchTime = 45;
 
   public static string ProduceCommand(GameState gs, Stopwatch sw)
   {
     if (TryProduceInitialLearn(gs, out var learnCmd))
       return learnCmd;
 
-    var rootNode = Pool<MctsNode>.Get();
+    var rootNode = QuickPool<MctsNode>.Get();
     rootNode.Score = gs.Players[0].Witch.Score;
     rootNode.Inventory = gs.Players[0].Witch.Inventory;
     var branch = Pool<MctsBranch>.Get();
@@ -91,33 +90,14 @@ static class Mcts
         bestChild = child;
       }
     }
-    var res = bestChild.ActionIdx;
 
-    RootNode = rootNode;
-
-    //DisposeTree(rootNode);
-
-    return res;
-  }
-
-  public static void DisposeTree(MctsNode node)
-  {
-    foreach (var child in node.Children)
-    {
-      DisposeTree(child);
-    }
-    node.Reset();
-    Pool<MctsNode>.Put(node);
+    return bestChild.ActionIdx;
   }
 
   public static void Expand(MctsNode node, MctsBranch branch)
   {
     if (node.Depth + 1 > MaxDepth)
       return;
-
-    if (branch.StartTick >= 15)
-    {
-    }
 
     var canRest = false;
     var nodeTotal = node.Inventory.Total();
@@ -136,7 +116,7 @@ static class Mcts
       if (shouldLearn && cast.Count > 1)
         continue;
       // todo: get rid of duplicates produced by multiple applications of not learned casts
-      var newNode = Pool<MctsNode>.Get();
+      var newNode = QuickPool<MctsNode>.Get();
       newNode.Parent = node;
       newNode.Depth = node.Depth + 1;
       newNode.Score = node.Score;
@@ -158,8 +138,8 @@ static class Mcts
       if (canBrew)
       {
         var newDepth = node.Depth + 1;
-        var newScore = brew.Price * (1 + (100 - newDepth) / 100d);
-        var newNode = Pool<MctsNode>.Get();
+        var newScore = brew.Price * (1 + (MaxDepth - newDepth) / (double)MaxDepth);
+        var newNode = QuickPool<MctsNode>.Get();
         newNode.Parent = node;
         newNode.Depth = node.Depth + 1;
         newNode.Score = node.Score + newScore;
@@ -176,7 +156,7 @@ static class Mcts
 
     if (canRest)
     {
-      var newNode = Pool<MctsNode>.Get();
+      var newNode = QuickPool<MctsNode>.Get();
       newNode.Parent = node;
       newNode.Depth = node.Depth + 1;
       newNode.Score = node.Score;
@@ -207,7 +187,7 @@ static class Mcts
       var max = entity.IsRepeatable ? 4 : 2;
       for (var count = 1; count < max; count++)
       {
-        var cast = Pool<MctsCast>.Get();
+        var cast = QuickPool<MctsCast>.Get();
         cast.Init(entityIdx, res.Count, entity, count);
         res.Add(cast);
       }
@@ -219,15 +199,18 @@ static class Mcts
 
   private static MctsNode Traverse(MctsNode node)
   {
-    if (node.Children.Count == 0)
-      return node;
-    foreach (var child in node.Children)
+    do
     {
-      if (child.Children.Count == 0)
-        return child;
-    }
+      if (node.Children.Count == 0)
+        return node;
+      foreach (var child in node.Children)
+      {
+        if (child.Children.Count == 0)
+          return child;
+      }
 
-    return Traverse(node.Children.FindMax(x => x.Ucb));
+      node = node.Children.FindMax(x => x.Ucb);
+    } while (true);
   }
 
   private static double Rollout(MctsNode node, MctsBranch branch)
@@ -269,7 +252,7 @@ static class Mcts
           node.CompleteBrews |= 1 << brewIdx;
           node.Inventory -= brew.IngredientPay;
           var realDepth = node.Depth + j;
-          score += brew.Price * (1 + (100 - realDepth) / 100d);
+          score += brew.Price * (1 + (MaxDepth - realDepth) / (double)MaxDepth);
         }
       }
 

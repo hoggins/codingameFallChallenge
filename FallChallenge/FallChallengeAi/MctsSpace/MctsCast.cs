@@ -1,4 +1,4 @@
-public class MctsCast
+public class MctsCast : IReusable
 {
   public int EntityIdx;
   public int BranchRefIdx;
@@ -34,5 +34,9 @@ public class MctsCast
     }
 
     Size = TotalChange.Total();
+  }
+
+  public void Reset()
+  {
   }
 }

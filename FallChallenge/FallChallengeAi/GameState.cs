@@ -51,10 +51,6 @@ class GameState
 
   public void Reset()
   {
-    foreach (var entity in Entities)
-    {
-      Pool<BoardEntity>.Put(entity);
-    }
     Entities.Clear();
     Learns.Clear();
     Brews.Clear();

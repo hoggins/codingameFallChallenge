@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-public class MctsNode
+public class MctsNode : IReusable
 {
   public MctsNode Parent;
   public int Depth;

@@ -9,10 +9,6 @@ public class MctsBranch
   public void Reset()
   {
     Brews = null;
-    foreach (var cast in Casts)
-    {
-      Pool<MctsCast>.Put(cast);
-    }
     Casts.Clear();
   }
 }

@@ -1,7 +1,7 @@
 ﻿//#define FOR_DEBUG
 //#define SNIFF
-#define PUBLISHED
-//#define PROFILER
+//#define PUBLISHED
+#define PROFILER
 
 using System;
 using System.Collections.Generic;
@@ -43,9 +43,9 @@ static class Program
 #endif
 
 
-    Pool<MctsNode>.Allocate(55000);
-    Pool<BoardEntity>.Allocate(128);
-    Pool<MctsCast>.Allocate(128);
+    QuickPool<MctsNode>.Allocate(100000);
+    QuickPool<BoardEntity>.Allocate(256);
+    QuickPool<MctsCast>.Allocate(128);
     Pool<MctsBranch>.Allocate(2);
     GC.Collect();
 
@@ -82,18 +82,17 @@ static class Program
     var input = new Input(Published, Sniff);
 
 
-
     var gs = new GameState();
     for (var tick = 0;; ++tick)
     {
       Comment = string.Empty;
-      gs.Reset();
       gs.Tick = tick;
 
       var actionCount = int.Parse(input.Line()); // the number of spells and recipes in play
+      var sw = Stopwatch.StartNew();
       for (int i = 0; i < actionCount; i++)
       {
-        var e = Pool<BoardEntity>.Get();
+        var e = QuickPool<BoardEntity>.Get();
         e.ReadInit(input.LineArgs());
         gs.AddEntity(e);
       }
@@ -109,51 +108,18 @@ static class Program
       // To debug: Console.Error.WriteLine("Debug messages...");
 
       //RunMc(gs);
-      //GC.TryStartNoGCRegion(2_000);
-      RunMcts(gs);
-      //GC.EndNoGCRegion();
 
+      var command = Mcts.ProduceCommand(gs, sw);
 
+      QuickPool<MctsNode>.Reset();
+      QuickPool<BoardEntity>.Reset();
+      QuickPool<MctsCast>.Reset();
+      gs.Reset();
+
+      AddComment(sw.ElapsedMilliseconds);
+      Console.WriteLine(command + Comment);
       //
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
-    }
-  }
-
-  private static void RunMcts(GameState gs)
-  {
-    var sw = Stopwatch.StartNew();
-
-    /*using (var branch = new Branch
-    {
-      InitialInventory = gs.Players[0].Witch.Inventory,
-      Learns = gs.Learns,
-      Casts = gs.Players[0].Casts,
-      CastsAndLearn = gs.Players[0].CastsAndLearn,
-      Brews = gs.Brews.Select(x => new Brew(x)).ToList(),
-    })
-    {
-      if (Mc.LearnInitial(branch, out var move))
-      {
-        Console.WriteLine(move.GetCommand());
-        return;
-      }
-    }
-
-    var readyBrew = gs.Brews.FirstOrDefault(x => gs.Myself.Witch.Inventory.CanPay(x.IngredientPay));
-    if (readyBrew != null)
-    {
-      Console.WriteLine("BREW " + readyBrew.Id);
-      return;
-    }*/
-
-    var command = Mcts.ProduceCommand(gs, sw);
-
-    AddComment(sw.ElapsedMilliseconds);
-    Console.WriteLine(command + Comment);
-
-    if (Mcts.RootNode != null)
-    {
-      Mcts.DisposeTree(Mcts.RootNode);
     }
   }
 

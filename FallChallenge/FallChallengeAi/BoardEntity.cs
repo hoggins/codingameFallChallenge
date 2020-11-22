@@ -31,7 +31,7 @@ class Brew : IDisposable
   }
 }
 
-public  class BoardEntity
+public  class BoardEntity : IReusable
 {
   // the unique ID of this spell or recipe
   public int Id;
@@ -97,5 +97,10 @@ public  class BoardEntity
   public override string ToString()
   {
     return $"{Id}: {IngredientChange}";
+  }
+
+  public void Reset()
+  {
+
   }
 }
