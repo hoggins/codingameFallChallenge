@@ -7,7 +7,7 @@ public struct Ingredient
   public short T2;
   public short T3;
 
-  public Ingredient(string[] arr, int idx) : this()
+  public void ReadInit(string[] arr, int idx)
   {
     T0 = short.Parse(arr[idx + 0]);
     T1 = short.Parse(arr[idx + 1]);

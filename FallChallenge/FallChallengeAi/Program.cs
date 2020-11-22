@@ -1,4 +1,4 @@
-﻿//#define FOR_DEBUG
+﻿#define FOR_DEBUG
 //#define SNIFF
 #define PUBLISHED
 //#define PROFILER
@@ -42,15 +42,37 @@ static class Program
       Thread.Sleep(3);
 #endif
 
+
+    Pool<MctsNode>.Allocate(55000);
+    Pool<BoardEntity>.Allocate(128);
+    Pool<MctsCast>.Allocate(128);
+    Pool<MctsBranch>.Allocate(2);
+    GC.Collect();
+
+    GC.Collect(1, GCCollectionMode.Forced);
+    GC.Collect(2, GCCollectionMode.Forced);
+    GC.Collect(2, GCCollectionMode.Forced);
+
 #if PROFILER
       JetBrains.Profiler.Api.MeasureProfiler.StartCollectingData();
+      try
+      {
 #endif
+
 
       RunGame();
 
+
 #if PROFILER
-      JetBrains.Profiler.Api.MeasureProfiler.StopCollectingData();
+    }
+    catch (Exception e)
+    {
+      Console.WriteLine(e);
+    }
       JetBrains.Profiler.Api.MeasureProfiler.SaveData();
+      JetBrains.Profiler.Api.MeasureProfiler.StopCollectingData();
+      //JetBrains.Profiler.Api.MeasureProfiler.Detach();
+
 #endif
   }
 
@@ -60,30 +82,39 @@ static class Program
     var input = new Input(Published, Sniff);
 
 
+
+    var gs = new GameState();
     for (var tick = 0;; ++tick)
     {
       Comment = string.Empty;
-      var gs = new GameState();
+      gs.Reset();
       gs.Tick = tick;
 
       var actionCount = int.Parse(input.Line()); // the number of spells and recipes in play
       for (int i = 0; i < actionCount; i++)
-        gs.AddEntity(new BoardEntity(input.LineArgs()));
+      {
+        var e = Pool<BoardEntity>.Get();
+        e.ReadInit(input.LineArgs());
+        gs.AddEntity(e);
+      }
 
       for (var i = 0; i < 2; i++)
-        gs.Players[i].Witch = new Witch(input.LineArgs());
+        gs.Players[i].Witch.ReadInit(input.LineArgs());
 
-      gs.Brews = gs.Entities
-        .Where(x => x.IsBrew)
-        .OrderByDescending(x => x.Price)
-        .ToList();
+      // gs.Brews = gs.Entities
+        // .Where(x => x.IsBrew)
+        // .OrderByDescending(x => x.Price)
+        // .ToList();
 
       // To debug: Console.Error.WriteLine("Debug messages...");
 
       //RunMc(gs);
+      //GC.TryStartNoGCRegion(2_000);
       RunMcts(gs);
+      //GC.EndNoGCRegion();
 
-      gs.Dispose();
+
+      //
       // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
     }
   }

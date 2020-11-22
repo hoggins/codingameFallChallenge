@@ -57,12 +57,11 @@ class BoardEntity
 
   public int BrewIngredientCount;
 
-
-  public BoardEntity(string[] inputs)
+  public void ReadInit(string[] inputs)
   {
     Id = int.Parse(inputs[0]);
-    Type = (EntityType) Enum.Parse(typeof(EntityType), inputs[1]);
-    IngredientChange = new Ingredient(inputs, 2);
+    Type = ReadType(inputs[1]);
+    IngredientChange.ReadInit(inputs, 2);
     Price = int.Parse(inputs[6]);
     TomeIndex = int.Parse(inputs[7]);
     TaxCount = int.Parse(inputs[8]);
@@ -77,8 +76,22 @@ class BoardEntity
       T3 = (short) (IngredientChange.T3 >= 0 ? 0 : -IngredientChange.T3),
     };
 
-    if (IsBrew)
-      BrewIngredientCount = IngredientChange.IngredientsCount();
+    // if (IsBrew)
+      // BrewIngredientCount = IngredientChange.IngredientsCount();
+  }
+
+  private EntityType ReadType(string input)
+  {
+    switch (input[0])
+    {
+      case 'B': return EntityType.BREW;
+      case 'C': return EntityType.CAST;
+      case 'O': return EntityType.OPPONENT_CAST;
+      case 'L': return EntityType.LEARN;
+      default:
+        throw new NotImplementedException();
+    }
+
   }
 
   public override string ToString()
