@@ -150,6 +150,11 @@ static class Program
 
     AddComment(sw.ElapsedMilliseconds);
     Console.WriteLine(command + Comment);
+
+    if (Mcts.RootNode != null)
+    {
+      Mcts.DisposeTree(Mcts.RootNode);
+    }
   }
 
   private static void RunMc(GameState gs)

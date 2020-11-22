@@ -7,9 +7,10 @@ using System.Linq;
 
 static class Mcts
 {
+  public static MctsNode RootNode;
   private const int MaxDepth = 15;
   private const int RollOutMaxDepth = 7;
-  private const int SearchTime = 35;
+  private const int SearchTime = 42;
 
   public static string ProduceCommand(GameState gs, Stopwatch sw)
   {
@@ -25,6 +26,7 @@ static class Mcts
     GenerateCasts(gs.Players[0].CastsAndLearn, rootNode, branch.Casts);
     var command = ProduceCommand(sw, rootNode, branch);
     branch.Reset();
+    Pool<MctsBranch>.Put(branch);
     return command;
   }
 
@@ -42,9 +44,6 @@ static class Mcts
     var cast = branch.Casts[actionIdx.Value];
     if (cast.IsLearn)
       return "LEARN " + cast.Cast.Id;
-    if (!cast.Cast.IsCastable)
-      //return "REST";
-      throw new Exception("logic error");
 
     return "CAST " + cast.Cast.Id + " " + cast.Count;
   }
@@ -71,8 +70,9 @@ static class Mcts
       Expand(leaf, branch);
       var simResult = leaf.Children.Count == 0 ? leaf.Score : Rollout(leaf, branch);
       Backpropagate(leaf, simResult);
-      if (sw.ElapsedMilliseconds > SearchTime)
+      if (i%10 == 0 && sw.ElapsedMilliseconds > SearchTime)
       {
+        Program.AddComment(":"+(SearchTime - sw.ElapsedMilliseconds));
         Program.AddComment("i:"+i.ToShortNumber());
         break;
       }
@@ -80,15 +80,27 @@ static class Mcts
 #if DRAWER
     Drawer.Draw(rootNode, branch);
 #endif
-    var bestChild = rootNode.Children.FindMax(x => x.Number);
+    var bestNum = 0;
+    MctsNode bestChild = null;
+    // var bestChild = rootNode.Children.FindMax(x => x.Number);
+    foreach (var child in rootNode.Children)
+    {
+      if (child.Number > bestNum)
+      {
+        bestNum = child.Number;
+        bestChild = child;
+      }
+    }
     var res = bestChild.ActionIdx;
 
-    DisposeTree(rootNode);
+    RootNode = rootNode;
+
+    //DisposeTree(rootNode);
 
     return res;
   }
 
-  private static void DisposeTree(MctsNode node)
+  public static void DisposeTree(MctsNode node)
   {
     foreach (var child in node.Children)
     {

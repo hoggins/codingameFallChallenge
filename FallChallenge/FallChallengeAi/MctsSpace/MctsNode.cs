@@ -19,7 +19,7 @@ public class MctsNode
 
   public readonly List<MctsNode> Children = new List<MctsNode>(64);
 
-  public double Ucb => (Value / Number) + 50*Math.Sqrt(Math.Log(Parent.Number)/Number);
+  public double Ucb => (Value / Number) + 25*Math.Sqrt(Math.Log(Parent.Number)/Number);
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public bool IsCastable(int idx) => (UsedCasts & (1 << idx)) == 0;
