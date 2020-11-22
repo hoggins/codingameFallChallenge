@@ -127,8 +127,10 @@ static class Mcts
       }
 
       var shouldLearn = cast.IsLearn && !node.IsLearned(cast.EntityIdx);
-      if (node.Inventory.Total() + cast.Size > 10
+      if ((!shouldLearn && node.Inventory.Total() + cast.Size > 10)
           || !node.Inventory.CanPay(shouldLearn ? cast.RequiredLearn : cast.Required))
+        continue;
+      if (shouldLearn && cast.Count > 1)
         continue;
       // todo: get rid of duplicates produced by multiple applications of not learned casts
       var newNode = new MctsNode
