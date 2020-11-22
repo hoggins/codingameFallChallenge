@@ -1,6 +1,6 @@
 using System;
 
-struct Ingredient
+public struct Ingredient
 {
   public short T0;
   public short T1;

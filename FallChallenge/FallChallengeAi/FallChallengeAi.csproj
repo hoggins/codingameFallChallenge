@@ -43,6 +43,7 @@
         <Reference Include="System" />
         <Reference Include="System.Core" />
         <Reference Include="System.Data" />
+        <Reference Include="System.Drawing" />
         <Reference Include="System.IO.Compression" />
         <Reference Include="System.Net.Http" />
         <Reference Include="System.Xml" />
@@ -51,6 +52,7 @@
         <Compile Include="BoardEntity.cs" />
         <Compile Include="BoardMove.cs" />
         <Compile Include="Branch.cs" />
+        <Compile Include="Drawer.cs" />
         <Compile Include="GameState.cs" />
         <Compile Include="Ingredient.cs" />
         <Compile Include="Input.cs" />
