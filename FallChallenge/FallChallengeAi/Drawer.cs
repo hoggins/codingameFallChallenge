@@ -1,4 +1,4 @@
-
+//#define DRAWER
 #if DRAWER
 using System;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ using System.Linq;
 public class Drawer
 {
   const int NodeWidth = 50;
-  const int NodeHeight = 30;
+  const int NodeHeight = 50;
   const string dir = "dump";
 
   class DrawContext : IDisposable
@@ -46,7 +46,7 @@ public class Drawer
       Directory.CreateDirectory(dir);
   }
 
-  public static void Draw(MctsNode root, int tick)
+  public static void Draw(MctsNode root, MctsBranch branch)
   {
     TryInit();
 
@@ -80,20 +80,38 @@ public class Drawer
         for (var w = 0; w < layer.Count; w++)
         {
           var node = layer[w];
-          DrawNode(cx, h, w, node);
+          DrawNode(cx, h, w, node, branch);
         }
       }
     }
 
-    bmp.Save($"{dir}/frame_{tick}.png", ImageFormat.Png);
+    bmp.Save($"{dir}/frame_{branch.StartTick}.png", ImageFormat.Png);
     bmp.Dispose();
   }
 
-  private static void DrawNode(DrawContext cx, int h, int w, MctsNode node)
+  private static void DrawNode(DrawContext cx, int h, int w, MctsNode node, MctsBranch branch)
   {
+    string name;
+    if (!node.ActionIdx.HasValue)
+      name = "R";
+    else if (node.ActionIdx.Value >= 0)
+    {
+      var cast = branch.Casts[node.ActionIdx.Value];
+      if (cast.IsLearn)
+        name = "L " + cast.Cast.Id;
+      else
+        name = "C " + cast.Cast.Id;
+    }
+    else
+    {
+      var brew = branch.Brews[-(node.ActionIdx.Value + 1)];
+      name = "B " + brew.Id;
+    }
+
     var x = w * NodeWidth;
     var y = h * NodeHeight;
-    cx.Graphics.DrawString(node.Number.ToString("0"), cx.Font, cx.FontBrush, x, y);
+    cx.Graphics.DrawString(name, cx.Font, cx.FontBrush, x, y);
+    cx.Graphics.DrawString("n:"+node.Number.ToString("0"), cx.Font, cx.FontBrush, x, y+20);
   }
 }
 #endif

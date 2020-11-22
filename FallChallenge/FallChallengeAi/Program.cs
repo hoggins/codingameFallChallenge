@@ -1,4 +1,4 @@
-﻿#define FOR_DEBUG
+﻿//#define FOR_DEBUG
 //#define SNIFF
 #define PUBLISHED
 //#define PROFILER

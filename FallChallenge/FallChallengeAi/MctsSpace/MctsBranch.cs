@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-class MctsBranch
+public class MctsBranch
 {
   public int StartTick;
   public readonly List<MctsCast> Casts = new List<MctsCast>(64);

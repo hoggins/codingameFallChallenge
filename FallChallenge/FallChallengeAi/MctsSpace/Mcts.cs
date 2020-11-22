@@ -64,6 +64,7 @@ static class Mcts
 
   public static int? MonteCarloTreeSearch(MctsNode rootNode, MctsBranch branch, Stopwatch sw)
   {
+    Expand(rootNode, branch);
     for (var i = 0;; i++)
     {
       var leaf = Traverse(rootNode);
@@ -77,7 +78,7 @@ static class Mcts
       }
     }
 #if DRAWER
-    Drawer.Draw(rootNode, branch.StartTick);
+    Drawer.Draw(rootNode, branch);
 #endif
     var bestChild = rootNode.Children.FindMax(x => x.Number);
     var res = bestChild.ActionIdx;
@@ -102,7 +103,7 @@ static class Mcts
     if (node.Depth + 1 > MaxDepth)
       return;
 
-    if (branch.StartTick >= 33)
+    if (branch.StartTick >= 15)
     {
     }
 
@@ -128,8 +129,8 @@ static class Mcts
       newNode.Depth = node.Depth + 1;
       newNode.Score = node.Score;
       newNode.Inventory = node.Inventory + (shouldLearn ? cast.TotalChangeLearn : cast.TotalChange);
-      newNode.UsedCasts = shouldLearn ? node.UsedCasts : node.UsedCasts & (1 << cast.EntityIdx);
-      newNode.LearnedCasts = !shouldLearn ? node.LearnedCasts : node.LearnedCasts & (1 << cast.EntityIdx);
+      newNode.UsedCasts = shouldLearn ? node.UsedCasts : node.UsedCasts | (1 << cast.EntityIdx);
+      newNode.LearnedCasts = !shouldLearn ? node.LearnedCasts : node.LearnedCasts | (1 << cast.EntityIdx);
       newNode.CompleteBrews = node.CompleteBrews;
       newNode.ActionIdx = cast.BranchRefIdx;
       // todo de duplicate
@@ -153,7 +154,7 @@ static class Mcts
         newNode.Inventory = node.Inventory - brew.IngredientPay;
         newNode.UsedCasts = node.UsedCasts;
         newNode.LearnedCasts = node.LearnedCasts;
-        newNode.CompleteBrews = node.CompleteBrews & (1<<brewIdx);
+        newNode.CompleteBrews = node.CompleteBrews | (1<<brewIdx);
         newNode.ActionIdx = -brewIdx-1;
         // todo de duplicate
         node.Children.Add(newNode);
@@ -296,39 +297,3 @@ static class Mcts
     return lastMove;
   }
 }
-
-class MctsCast
-{
-  public int EntityIdx;
-  public int BranchRefIdx;
-  public BoardEntity Cast;
-  public int Count;
-
-  public int Size;
-  public Ingredient Required;
-  public Ingredient TotalChange;
-
-  public bool IsLearn;
-  public Ingredient RequiredLearn;
-  public Ingredient TotalChangeLearn;
-
-  public void Init(int entityIdx, int branchRefIdx, BoardEntity cast, int count)
-  {
-    EntityIdx = entityIdx;
-    BranchRefIdx = branchRefIdx;
-    Cast = cast;
-    Count = count;
-
-    Required = Cast.IngredientPay * Count;
-    TotalChange = Cast.IngredientChange * Count;
-    if (Cast.Type == EntityType.LEARN)
-    {
-      IsLearn = true;
-      RequiredLearn = new Ingredient((short)Cast.TomeIndex,0,0,0);
-      TotalChangeLearn =  new Ingredient((short)(-Cast.TomeIndex + Cast.TaxCount),0,0,0);
-    }
-
-    Size = TotalChange.Total();
-  }
-}
-

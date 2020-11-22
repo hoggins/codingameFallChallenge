@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-enum EntityType
+public enum EntityType
 {
   BREW,
   CAST,
@@ -31,7 +31,7 @@ class Brew : IDisposable
   }
 }
 
-class BoardEntity
+public  class BoardEntity
 {
   // the unique ID of this spell or recipe
   public int Id;

@@ -59,6 +59,7 @@
         <Compile Include="Mc.cs" />
         <Compile Include="MctsSpace\Mcts.cs" />
         <Compile Include="MctsSpace\MctsBranch.cs" />
+        <Compile Include="MctsSpace\MctsCast.cs" />
         <Compile Include="MctsSpace\MctsNode.cs" />
         <Compile Include="MoveCast.cs" />
         <Compile Include="PoolList.cs" />
