@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 
@@ -120,6 +121,9 @@ static class Mcts
 
   public static string ProduceCommand(GameState gs, Stopwatch sw)
   {
+    if (TryProduceInitialLearn(gs, out var command))
+      return command;
+
     var rootNode = new MctsNode
     {
       Score = gs.Players[0].Witch.Score,
@@ -145,6 +149,19 @@ static class Mcts
     if (!cast.Cast.IsCastable)
       return "REST";
     return "CAST " + cast.Cast.Id + " " + cast.Count;
+  }
+
+  private static bool TryProduceInitialLearn(GameState gs, out string cmd)
+  {
+    if (gs.Players[0].Casts.Count < 9)
+    {
+      var learn = gs.Learns.First(x => x.TomeIndex == 0);
+      cmd = "LEARN " + learn.Id;
+      return true;
+    }
+
+    cmd = null;
+    return false;
   }
 
   public static MctsNode MonteCarloTreeSearch(MctsNode rootNode, MctsBranch branch, Stopwatch sw)
