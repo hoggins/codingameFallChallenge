@@ -76,8 +76,8 @@ public  class BoardEntity : IReusable
       T3 = (short) (IngredientChange.T3 >= 0 ? 0 : -IngredientChange.T3),
     };
 
-    // if (IsBrew)
-      // BrewIngredientCount = IngredientChange.IngredientsCount();
+    if (IsBrew)
+      BrewIngredientCount = IngredientChange.IngredientsCount();
   }
 
   private EntityType ReadType(string input)

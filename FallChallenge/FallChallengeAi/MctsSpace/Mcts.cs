@@ -7,10 +7,32 @@ using System.Linq;
 
 static class Mcts
 {
-  private const int MaxDepth = 15;
-  private const int RollOutMaxDepth = 7;
-  private const int SearchTime = 45;
+  private static int MaxDepth = 15;
+  private static int RollOutMaxDepth = 7;
+  private static int SearchTime = 44;
 
+  public static string ProduceWarmCommand(GameState gs, Stopwatch sw)
+  {
+    if (gs.Tick == 0)
+    {
+      var oldSt = SearchTime;
+      SearchTime = 200;
+      var warm = ProduceCommand(gs, sw);
+      SearchTime = oldSt;
+      Output.WriteLine("warm " + warm);
+    }
+    if (TryProduceInitialLearn(gs, out var learnCmd))
+      return learnCmd;
+
+    if (gs.Tick > 25)
+      MaxDepth = 13;
+    // else if (gs.Tick > 30)
+      // MaxDepth = 11;
+    // else if (gs.Tick > 40)
+      // MaxDepth = 9;
+
+    return ProduceCommand(gs, sw);
+  }
   public static string ProduceCommand(GameState gs, Stopwatch sw)
   {
     if (TryProduceInitialLearn(gs, out var learnCmd))
@@ -119,7 +141,7 @@ static class Mcts
       var newNode = QuickPool<MctsNode>.Get();
       newNode.Parent = node;
       newNode.Depth = node.Depth + 1;
-      newNode.Score = node.Score;
+      newNode.Score = !shouldLearn ? node.Score : node.Score-0.1;
       newNode.Inventory = node.Inventory + (shouldLearn ? cast.TotalChangeLearn : cast.TotalChange);
       newNode.UsedCasts = shouldLearn ? node.UsedCasts : node.UsedCasts | (1 << cast.EntityIdx);
       newNode.LearnedCasts = !shouldLearn ? node.LearnedCasts : node.LearnedCasts | (1 << cast.EntityIdx);
@@ -239,6 +261,8 @@ static class Mcts
       var shouldLearn = pickMove.IsLearn && !node.IsLearned(pickMove.EntityIdx);
       node.Inventory += shouldLearn ? pickMove.TotalChangeLearn : pickMove.TotalChange;
       node.UsedCasts |= 1 << pickMove.EntityIdx;
+      if (shouldLearn)
+        node.Score -= node.Score-0.1;
 
       for (var brewIdx = 0; brewIdx < branch.Brews.Count; brewIdx++)
       {
@@ -260,11 +284,49 @@ static class Mcts
         break;
     }
 
+    if (brewsComplete == 0)
+      score += Evaluate(branch, node) * 0.01;
+
     node.Inventory = srcInventory;
     node.LearnedCasts = srcLearn;
     node.UsedCasts = srcCast;
     node.CompleteBrews = srcBrews;
     return score;
+  }
+
+  public static double Evaluate(MctsBranch branch, MctsNode node)
+  {
+    var bestScore = 0d;
+    for (var brewIdx = 0; brewIdx < branch.Brews.Count; brewIdx++)
+    {
+      var brew = branch.Brews[brewIdx];
+      if (node.IsBrewCompleted(brewIdx))
+        continue;
+      var score = ScoreBrew(brew) * brew.Price;
+      if (score > bestScore)
+        bestScore = score;
+    }
+
+    return bestScore;
+
+
+    double ScoreBrew(BoardEntity brew)
+    {
+      var ingredientsCnt = brew.BrewIngredientCount;
+      var s = SimpleScore(node.Inventory.T0, brew.IngredientPay.T0);
+      s += SimpleScore(node.Inventory.T1, brew.IngredientPay.T1);
+      s += SimpleScore(node.Inventory.T2, brew.IngredientPay.T2);
+      s += SimpleScore(node.Inventory.T3, brew.IngredientPay.T3);
+      return s / ingredientsCnt;
+    }
+    double SimpleScore(int v1, int v2)
+    {
+      if (v2 == 0)
+        return 0;
+      if (v1 > v2)
+        return 1;
+      return v1 / (double) v2;
+    }
   }
 
   private static MctsCast PickMove(MctsNode node, List<MctsCast> casts)

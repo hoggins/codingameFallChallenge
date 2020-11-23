@@ -10,7 +10,7 @@ using System.Linq;
 public class Drawer
 {
   const int NodeWidth = 50;
-  const int NodeHeight = 50;
+  const int NodeHeight = 80;
   const string dir = "dump";
 
   class DrawContext : IDisposable
@@ -97,7 +97,7 @@ public class Drawer
     else if (node.ActionIdx.Value >= 0)
     {
       var cast = branch.Casts[node.ActionIdx.Value];
-      if (cast.IsLearn)
+      if (cast.IsLearn && !node.IsLearned(cast.EntityIdx))
         name = "L " + cast.Cast.Id;
       else
         name = "C " + cast.Cast.Id;
@@ -112,6 +112,7 @@ public class Drawer
     var y = h * NodeHeight;
     cx.Graphics.DrawString(name, cx.Font, cx.FontBrush, x, y);
     cx.Graphics.DrawString("n:"+node.Number.ToString("0"), cx.Font, cx.FontBrush, x, y+20);
+    cx.Graphics.DrawString("s:"+node.Score.ToString("0"), cx.Font, cx.FontBrush, x, y+40);
   }
 }
 #endif

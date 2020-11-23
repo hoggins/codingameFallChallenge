@@ -1,7 +1,7 @@
 ﻿//#define FOR_DEBUG
 //#define SNIFF
-//#define PUBLISHED
-#define PROFILER
+#define PUBLISHED
+//#define PROFILER
 
 using System;
 using System.Collections.Generic;
@@ -109,7 +109,7 @@ static class Program
 
       //RunMc(gs);
 
-      var command = Mcts.ProduceCommand(gs, sw);
+      var command = Mcts.ProduceWarmCommand(gs, sw);
 
       QuickPool<MctsNode>.Reset();
       QuickPool<BoardEntity>.Reset();
